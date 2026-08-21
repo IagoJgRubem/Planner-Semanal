@@ -1,0 +1,13 @@
+FONTES LOCAIS DO PLANNER
+
+Inter e Montserrat foram incorporadas como WOFF2 locais para impedir requisições de tipografia externa no primeiro carregamento do PWA.
+
+Origem oficial:
+- Inter: https://fonts.google.com/specimen/Inter
+- Montserrat: https://fonts.google.com/specimen/Montserrat
+
+Arquivos incluídos:
+- fonts/inter-latin-ext.woff2
+- fonts/montserrat-latin-ext.woff2
+
+As fontes são declaradas em planner.css e pré-cacheadas em planner-service-worker.js. O subconjunto latin-ext contempla a acentuação usada no conteúdo em português.

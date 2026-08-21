@@ -1,0 +1,33 @@
+# Dependências e saídas de desenvolvimento
+node_modules/
+.pnpm-store/
+dist/
+build/
+coverage/
+.cache/
+
+# Segredos e arquivos locais de ambiente
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+
+# Logs, relatórios efêmeros e configuração do ambiente local
+*.log
+*.tmp
+.manus-logs/
+.project-config.json
+docs/validacao-a4-uma-folha.pdf
+
+# Editor e sistema operacional
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

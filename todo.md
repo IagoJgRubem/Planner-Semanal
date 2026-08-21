@@ -1,0 +1,229 @@
+- [x] Definir os elementos editáveis sem alterar a estrutura visual e a impressão A4.
+- [x] Implementar a edição direta nas atividades, horários e conteúdos dos cartões.
+- [x] Aplicar estados de foco discretos e testar a edição na visualização do navegador.
+- [x] Validar o comportamento final e salvar um checkpoint atualizado.
+- [x] Definir a leitura e os pontos de quebra para celular, notebook e desktop.
+- [x] Adaptar a tabela e os cartões para telas pequenas sem perder editabilidade.
+- [x] Verificar o layout em celular e desktop, mantendo a impressão A4 inalterada.
+- [x] Salvar o checkpoint da versão responsiva.
+- [x] Confirmar se a grade horária semanal substitui a estrutura atual de blocos.
+- [x] Reestruturar o planner com dias separados, horários contínuos, mês e prioridades.
+- [x] Validar o novo modelo em celular, notebook, desktop e impressão.
+- [x] Implementar campos editáveis para os intervalos de horário da nova grade semanal.
+- [x] Integrar uma área de anotações à estrutura da grade semanal.
+- [x] Reforçar a organização visual de prioridades e dias conforme as novas referências.
+- [x] Validar a versão híbrida em celular, desktop e impressão A4 paisagem.
+- [x] Estruturar o armazenamento local dos modelos de rotina e dos campos atuais.
+- [x] Adicionar controles para salvar, carregar e limpar uma semana.
+- [x] Integrar um checklist semanal interativo à faixa de revisão.
+- [x] Validar os fluxos em telas ampla e móvel.
+- [x] Adicionar ações de renomear e excluir para modelos de rotina salvos.
+- [x] Implementar exportação e importação de modelos em arquivo JSON.
+- [x] Criar controles de conclusão e resumo automático das prioridades semanais.
+- [x] Validar os novos fluxos de gerenciamento local e responsividade.
+- [x] Registrar o histórico local de conclusão das prioridades por semana.
+- [x] Adicionar categorias coloridas e filtro para os modelos salvos.
+- [x] Implementar duplicação de modelos de rotina existentes.
+- [x] Validar histórico, categorias e duplicação em desktop e celular.
+- [x] Calcular e exibir a sequência de semanas com prioridades concluídas.
+- [x] Permitir editar e excluir registros do histórico semanal.
+- [x] Adicionar metas mensais vinculadas às categorias coloridas.
+- [x] Validar as novas funcionalidades em desktop e celular.
+- [x] Exibir lembretes de metas mensais vinculadas às categorias na grade semanal.
+- [x] Criar gráfico comparativo de conclusão de metas por categoria.
+- [x] Implementar exportação CSV de histórico e metas mensais.
+- [x] Validar os novos fluxos em desktop e celular.
+- [x] Adicionar prazos específicos e estados de vencimento às metas mensais.
+- [x] Criar um calendário mensal interativo com metas distribuídas por data.
+- [x] Implementar alertas visuais locais para metas pendentes e próximas do vencimento.
+- [x] Validar as novas funções em desktop e celular.
+- [x] Criar dados locais para compromissos da agenda diária e datas selecionadas.
+- [x] Implementar recorrência mensal automática para metas.
+- [x] Permitir selecionar dias da semana para os lembretes de cada meta.
+- [x] Validar agenda diária, recorrência e lembretes em desktop e celular.
+- [x] Implementar edição e exclusão dos compromissos locais da agenda diária.
+- [x] Criar uma visualização de carga semanal por categoria.
+- [x] Adicionar horários específicos aos lembretes de cada meta.
+- [x] Validar os novos recursos em desktop e celular.
+- [x] Adicionar duração estimada aos compromissos da agenda diária.
+- [x] Calcular e sinalizar conflitos de horário e sobrecarga no dia selecionado.
+- [x] Implementar arrastar e soltar para mover compromissos entre horários.
+- [x] Validar a agenda interativa em desktop e celular.
+- [x] Implementar bloqueio local de horários indisponíveis por data.
+- [x] Calcular capacidade semanal disponível versus tempo planejado.
+- [x] Sugerir pausas entre compromissos consecutivos ou sobrecarga.
+- [x] Validar os novos recursos de agenda em desktop e celular.
+- [x] Adicionar horários de trabalho configuráveis para cada dia da semana.
+- [x] Recalcular a capacidade semanal a partir da jornada definida.
+- [x] Criar relatório mensal visual de trabalho, pausas e bloqueios.
+- [x] Validar os novos cálculos e o relatório em desktop e celular.
+- [x] Criar cadastro local de feriados e folgas por data.
+- [x] Permitir configurar dias recorrentes de folga na semana.
+- [x] Integrar ausências aos cálculos semanal e mensal de capacidade.
+- [x] Validar os ajustes de capacidade em desktop e celular.
+- [x] Criar cadastro local de meias jornadas por data.
+- [x] Ajustar a capacidade diária, semanal e mensal de forma proporcional.
+- [x] Criar visualização anual interativa de disponibilidade e ausências.
+- [x] Validar persistência, cálculos e responsividade das novas funções.
+- [x] Refinar microtipografia, metadados de impressão e superfícies editoriais.
+- [x] Adicionar marcações interativas, dia vigente, scratchpad e controles rápidos.
+- [x] Implementar exportação .ics, indicador de bloco ativo e modo foco.
+- [x] Criar experiência móvel por dia, tema escuro, atalhos e melhorias de acessibilidade.
+- [x] Configurar PWA com manifesto e funcionamento offline.
+- [x] Validar desktop, celular, impressão, persistência e acessibilidade.
+- [x] Adicionar energia cognitiva, recompensas e protocolo de dia ruim.
+- [x] Criar adesão semanal, gargalos, fechamento dominical e estatísticas mensais.
+- [x] Implementar Odanote, áudio de revisão, durações editáveis e modo e-ink.
+- [x] Criar backup JSON, exportação Markdown, visualização bloqueada e imagem do planner.
+- [x] Importar feriados nacionais e preparar integrações externas configuráveis.
+- [x] Validar os novos recursos locais e documentar requisitos de notificações externas.
+- [x] Ativar lembretes locais e manter a exportação para agenda do dispositivo.
+- [x] Preparar a automação externa para Telegram, sem conector de Discord.
+- [x] Descontinuar a publicação e os disparos diários de mensagens, pois o planner seguirá como PWA local estático.
+- [x] Expandir as estatísticas mensais de estudos e ritual 5S.
+- [x] Persistir o áudio de revisão entre sessões e limitar a gravação a dois minutos.
+- [x] Documentar e tornar visível a configuração exclusiva de Telegram.
+- [x] Refinar badges de duração, hairlines, tipografia tabular e hierarquia das células.
+- [x] Aprimorar cartões de revisão, textura de escrita e zonas de transição da grade.
+- [x] Adicionar marcas técnicas de impressão e identidade documental discretas.
+- [x] Validar os refinamentos compatíveis em desktop, celular e impressão.
+- [x] Validar explicitamente a impressão dos crop marks, marca d'água, hairlines, badges e cartões.
+- [x] Confirmar visualmente os acabamentos técnicos dentro da área imprimível A4.
+- [x] Documentar a evidência visual dos acabamentos técnicos na impressão A4 final.
+- [x] Aplicar as correções priorizadas do segundo arquivo de requisitos e registrar os itens não aplicáveis ao stack atual.
+- [x] Validar explicitamente a impressão A4 após as correções recentes.
+- [x] Corrigir carregamento de Google Maps e persistência da largura do dashboard.
+- [x] Corrigir tema, contraste de diálogos e rotas auxiliares no React.
+- [x] Corrigir edição, áudio, datas e cache offline no planner estático.
+- [x] Corrigir componentes de interface prioritários de acessibilidade e tipagem.
+- [x] Corrigir os componentes auxiliares prioritários e registrar os itens não aplicáveis ao stack atual.
+- [x] Validar a documentação de resolução e dos itens não aplicáveis do segundo anexo.
+- [x] Simplificar o cabeçalho e inferir automaticamente a semana corrente.
+- [x] Unificar ações globais em uma barra de ferramentas contextual.
+- [x] Transformar sequências de trabalho em cartões contínuos de duração real.
+- [x] Reorganizar status operacional, microtipografia e elementos técnicos de tela.
+- [x] Validar a nova experiência digital em desktop, celular e impressão.
+- [x] Tornar a fusão de blocos contínuos dinâmica após edições do usuário.
+- [x] Migrar durações anteriores para a duração total de cartões contínuos.
+- [x] Adaptar e validar a capacidade semanal para cartões contínuos editados.
+- [x] Manter a publicação e os disparos automáticos do Telegram inativos até autorização explícita.
+- [x] Criar pré-visualização dedicada da folha A4 antes da impressão.
+- [x] Refinar os estilos de impressão para economizar tinta, preservar contraste e diferenciar marcação física de registro concluído.
+- [x] Adicionar sugestões rápidas de preenchimento para blocos recorrentes da rotina.
+- [x] Consolidar o backup local em um payload JSON legível com opção de cópia e restauração direta.
+- [x] Validar as melhorias do fluxo híbrido em desktop, celular e impressão A4.
+- [x] Corrigir o preenchimento rápido para recriar badges e estados derivados ao trocar presets.
+- [x] Sincronizar o backup consolidado com todos os fluxos de persistência local e exibir o payload atual para revisão imediata.
+- [x] Tornar o teste de validação do Telegram opcional para não depender de rede enquanto a publicação estiver inativa.
+- [x] Atualizar o preenchimento rápido para recalcular todos os estados derivados após trocar presets.
+- [x] Expandir o backup consolidado para incluir a persistência local fora do localStorage ou documentar explicitamente seu escopo.
+- [x] Revalidar desktop, celular e pré-visualização A4 após os refinamentos de estados e backup.
+- [x] Validar novamente em celular após o autopreenchimento do backup consolidado.
+- [x] Registrar evidência final de revalidação móvel e prévia A4 após os refinamentos de estados e backup com áudio.
+- [x] Gerar e verificar um pacote ZIP completo do código atual do planner para entrega.
+- [x] Gerar um inventário TXT dos arquivos relevantes e suas responsabilidades no planner.
+- [x] Criar um pacote PWA estático independente com os cinco arquivos essenciais do planner.
+- [x] Ajustar caminhos relativos, manifesto e service worker para implantação em subdiretórios estáticos.
+- [x] Incluir ícones PNG 192 e 512 com suporte a instalação Android.
+- [x] Remover o áudio do backup JSON para preservar a cota do localStorage e mantê-lo no IndexedDB.
+- [x] Validar e entregar o pacote estático pronto para hospedagem estática.
+- [x] Remover a seção visual, automações, testes e documentação referentes ao Telegram.
+- [x] Remover os arquivos, rotas, testes e documentação específicos do Telegram agora dispensados.
+- [x] Atualizar e validar o pacote PWA estático sem referências ao Telegram.
+- [x] Substituir a estrutura React/Express/tRPC/Drizzle por um PWA estático puro no repositório principal.
+- [x] Remover dependências, configurações e arquivos fullstack não utilizados pelo planner.
+- [x] Preservar o núcleo do planner, PWA, armazenamento local, impressão e exportações após a simplificação.
+- [x] Validar e entregar o repositório estático simplificado.
+- [x] Revalidar os fluxos críticos de prévia A4, exportações e persistência local na raiz estática.
+- [x] Gerar e verificar um ZIP final do repositório principal já simplificado.
+- [x] Confirmar a geração efetiva das exportações ICS, Markdown, SVG e backup JSON na raiz estática.
+- [x] Restabelecer uma prévia local compatível com a arquitetura PWA estática simplificada.
+- [x] Corrigir a abertura direta da prévia estática em rotas móveis que atualmente retornam página não encontrada.
+- [x] Validar a abertura direta do planner em desktop e celular após o ajuste de rota.
+- [x] Gerar e entregar novamente o pacote ZIP completo do código estático atualizado.
+- [x] Extrair a lógica do planner em módulos ES nativos por responsabilidade, mantendo o HTML como estrutura do documento.
+- [x] Criar módulos dedicados para armazenamento local, áudio IndexedDB e cálculos/calendário reutilizáveis.
+- [x] Remover o carregamento remoto de Google Fonts e incorporar fontes locais com fallbacks apropriados.
+- [x] Atualizar o service worker e validar o PWA modular com fontes locais e cache offline.
+- [x] Extrair as responsabilidades de exportação, impressão, preenchimento rápido e inicialização para módulos ES nativos.
+- [x] Revalidar explicitamente a prévia A4 e os fluxos críticos após a modularização ampla.
+- [x] Gerar o ZIP completo e salvar o checkpoint final da versão modular.
+- [x] Mover o bootstrap e o registro de eventos para um módulo dedicado de inicialização.
+- [x] Revalidar quick fill, persistência, backup e exportações SVG/Markdown após a modularização ampliada.
+- [x] Extrair os domínios remanescentes de backup/restauração e foco/timer para módulos ES nativos.
+- [x] Reduzir substancialmente o script inline e revalidar todos os fluxos críticos após a extração adicional.
+- [x] Extrair agenda diária, métricas de capacidade/aderência e renderizações secundárias para módulos por domínio.
+- [x] Revalidar rota, prévia A4, quick fill, foco, backup JSON, exportações e persistência após a modularização final.
+- [x] Adicionar teste nativo de regressão para controladores, cache offline e fontes locais.
+- [x] Extrair renderWeeklyCapacity e outras renderizações secundárias ainda inline para módulos de domínio e remover duplicação restante do index.html.
+- [x] Continuar a redução do script inline até atingir a meta planejada e registrar nova medição comparativa.
+- [x] Executar e registrar validação final explícita de quick fill, modo foco, backup JSON e persistência após recarregar a página.
+- [x] Só marcar a modularização final como concluída após salvar checkpoint e comprovar a suíte de regressão dos fluxos críticos pós-extração.
+- [x] Revisar criticamente o parecer técnico enviado pelo usuário e classificar os riscos e melhorias contra o código modular atual.
+- [x] Substituir os diálogos nativos de agenda e metas por um modal HTML acessível e reutilizável.
+- [x] Extrair o ponto de entrada JavaScript do index.html para modules/app.js, mantendo o HTML declarativo.
+- [x] Converter o script de módulo restante em modules/app.js e substituir o bloco inline por uma referência src declarativa.
+- [x] Revalidar todas as importações relativas e o cache offline após a conversão integral da entrada.
+- [x] Mover a configuração padrão de horários e rotina para modules/default-schedule.js.
+- [x] Extrair chaves de persistência, presets e mapa de elementos para módulos de composição reutilizáveis.
+- [x] Revalidar o modal, agenda, metas, backup, impressão e cache offline após a extração da entrada.
+- [x] Criar teste de regressão para o novo modal e a configuração padrão extraída.
+- [x] Revalidar na entrada externa o modal reutilizável de agenda e metas, incluindo abrir, salvar, cancelar e excluir.
+- [x] Revalidar exportação, cópia, restauração e persistência do backup JSON após recarregar a entrada externa.
+- [x] Investigar e corrigir o aumento anômalo de prioridades e capacidade exibido após o preenchimento rápido, antes do checkpoint final.
+- [x] Salvar e excluir uma meta temporária por confirmação no modal da entrada externa, restaurando o estado inicial.
+- [x] Testar explicitamente a cópia do backup JSON e confirmar a persistência depois de nova recarga manual.
+- [x] Validar com teste automatizado que a cópia envia exatamente o payload atual do backup para a área de transferência simulada.
+- [x] Executar uma recarga manual separada após o backup e confirmar a persistência de payload e capacidade semanal.
+- [x] Capturar de forma observável a mensagem de sucesso ou fallback do botão Copiar backup na interface recarregada.
+- [x] Invalidar o cache offline para distribuir a correção do controlador de cópia de backup.
+- [x] Corrigir a grade móvel para que a coluna do dia selecionado ocupe integralmente o espaço disponível ao lado do horário.
+- [x] Recolher os controles administrativos e o preenchimento rápido no celular para antecipar abas e grade acima da dobra.
+- [x] Separar visualmente duração e marcação de conclusão dos blocos móveis, evitando sobreposição e alvos de toque ambíguos.
+- [x] Corrigir o alinhamento da captura rápida e contextualizar o fluxo de restauração de backup em telas pequenas.
+- [x] Criar uma barra inferior fixa no celular com Prévia A4, Tema, Foco e Menu.
+- [x] Substituir a gaveta extensa de ferramentas por um menu compacto que exponha ações avançadas de forma progressiva.
+- [x] Remover ações globais da área após a grade e manter a rotina como foco central da rolagem móvel.
+- [x] Corrigir o comportamento da barra de dias e do cabeçalho durante a rolagem móvel, evitando cortes e sobreposições.
+- [x] Uniformizar o posicionamento dos badges de duração em cartões com e sem checkbox no modo móvel.
+- [x] Corrigir o alinhamento entre a coluna de horários e o cabeçalho do dia selecionado no grid móvel.
+- [x] Criar uma área segura no fim do conteúdo para que a barra inferior não cubra grade, revisão ou captura rápida.
+- [x] Ajustar o badge de duração para não colidir com o texto da tarefa em blocos curtos.
+- [x] Limitar a altura do diálogo de ferramentas e permitir rolagem interna confortável no celular.
+- [x] Padronizar os controles de modelos e ferramentas, ocultar o JSON cru no celular e remover a duplicação de Tema no diálogo.
+- [x] Preservar a proporção A4 paisagem e as sete colunas na folha clonada da pré-visualização móvel.
+- [x] Restaurar a visibilidade de todos os slots e cabeçalhos dentro da prévia, independentemente do dia ativo no celular.
+- [x] Tornar a área da prévia rolável nos dois eixos e ocultar a barra inferior enquanto a impressão estiver aberta.
+- [x] Restaurar o tamanho físico de 3,5 mm para as caixas de marcação da folha clonada.
+- [x] Ocultar as abas móveis duplicadas dentro da pré-visualização A4.
+- [x] Forçar o palco da prévia a manter largura total e rolagem horizontal livre no celular.
+- [x] Remover qualquer largura máxima residual da folha A4 clonada e do seu palco móvel.
+- [x] Adicionar um indício visual lateral discreto de que a prévia pode ser rolada horizontalmente.
+- [x] Preservar na prévia os cartões contínuos de trabalho e suas durações consolidadas.
+- [x] Reposicionar os badges de status da prévia para não colidirem com as marcações físicas.
+- [x] Gerar e verificar o pacote ZIP completo do código atualizado para entrega ao usuário.
+- [x] Reorganizar os grupos de modelos, categorias e ferramentas em linhas compactas no desktop.
+- [x] Padronizar tamanho, borda e tipografia dos botões administrativos, incluindo Registrar semana.
+- [x] Ocultar o campo de backup JSON bruto da barra superior e preservar as ações de backup.
+- [x] Gerar e verificar o pacote ZIP completo após a reorganização desktop da barra de ferramentas.
+- [x] Verificar os critérios técnicos da revisão anexada contra a implementação atual.
+- [x] Compactar os painéis extensos de acompanhamento em telas móveis com menos de 400 px.
+- [x] Auditar a revisão repetida contra a versão atual v21 e registrar divergências factuais.
+- [x] Simular o painel de Acompanhamento aberto em 320 px e 375 px e registrar as quebras observadas.
+- [x] Corrigir qualquer quebra de layout identificada no Acompanhamento móvel estreito.
+- [x] Criar e validar uma habilidade reutilizável para auditoria responsiva de PWA estático.
+- [x] Adicionar um indicador visual sutil de rolagem para os mini-calendários anuais em telas estreitas.
+- [x] Formalizar a rubrica objetiva de qualidade e registrar os critérios de ambiente controlado.
+- [x] Medir overflow horizontal e alvos de toque nos viewports de 320 px, 375 px e 420 px.
+- [x] Corrigir qualquer desvio identificado e executar a regressão final.
+- [x] Gerar relatório técnico e pacote ZIP final verificados para entrega.
+- [x] Blindar o modo de impressão A4 paisagem contra quebra para segunda folha.
+- [x] Validar a saída de uma única página pelo mecanismo de impressão do Chromium e pela regressão do PWA.
+- [x] Gerar e verificar o pacote ZIP definitivo para publicação manual.
+- [x] Auditar arquivos, segredos e documentação antes da exportação do PWA para GitHub.
+- [x] Aplicar salvaguardas de repositório que sejam relevantes ao PWA estático.
+- [x] Documentar um checklist objetivo de envio seguro ao GitHub.
+- [x] Criar workflow do GitHub Actions para testes em push e pull request na branch main.
+- [x] Configurar publicação do artefato estático no GitHub Pages após testes aprovados na branch main.
+- [x] Validar a configuração, gerar e verificar o ZIP definitivo com a automação incluída.
+- [x] Gerar novamente e verificar o ZIP definitivo pronto para envio ao GitHub.

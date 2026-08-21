@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
+  <title id="title">Planner Operacional Semanal</title>
+  <rect width="256" height="256" fill="#fffefa"/>
+  <rect x="28" y="28" width="200" height="200" fill="none" stroke="#141414" stroke-width="12"/>
+  <path d="M54 88h148M54 128h148M54 168h148M96 54v148M148 54v148" fill="none" stroke="#141414" stroke-width="8"/>
+  <rect x="100" y="92" width="44" height="32" fill="#fff6dc"/>
+  <rect x="152" y="132" width="44" height="32" fill="#eef8f1"/>
+</svg>

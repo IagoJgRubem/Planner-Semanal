@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#fffefa" />
+    <title>Planner Semanal</title>
+    <link rel="manifest" href="./planner-manifest.webmanifest" />
+    <link rel="icon" href="./planner-icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./planner.css" />
+  </head>
+  <body>
+    <!--
+      Direção visual: grade horária editorial inspirada nas referências enviadas.
+      A composição é horizontal para ampliar a área útil, com prioridade para escrita, leitura rápida e impressão A4 em paisagem.
+    -->
+    <main class="workspace">
+      <article class="planner-page" aria-labelledby="planner-title">
+        <div class="planner-content">
+          <header class="planner-topbar">
+            <div class="planner-brand">
+              <p class="eyebrow">Planejamento operacional</p>
+              <h1 id="planner-title">Planner<br />Semanal</h1>
+            </div>
+
+            <div class="month-field field-group">
+              <span class="field-label">Mês</span>
+              <span class="line-field" contenteditable="true" data-editable="month" role="textbox" aria-label="Mês do planner"></span>
+            </div>
+
+            <section class="priorities" aria-label="Cinco prioridades da semana">
+              <span class="field-label priorities-label">Prioridades</span>
+              <div class="priority-fields">
+                <div class="priority-item"><input id="priority-1-check" type="checkbox" data-priority="priority-1" /><button class="priority-mark" type="button" data-priority-toggle="priority-1" aria-label="Marcar prioridade 1 como concluída" aria-pressed="false">1</button><span class="line-field" contenteditable="true" data-editable="priority-1" role="textbox" aria-label="Prioridade 1"></span></div>
+                <div class="priority-item"><input id="priority-2-check" type="checkbox" data-priority="priority-2" /><button class="priority-mark" type="button" data-priority-toggle="priority-2" aria-label="Marcar prioridade 2 como concluída" aria-pressed="false">2</button><span class="line-field" contenteditable="true" data-editable="priority-2" role="textbox" aria-label="Prioridade 2"></span></div>
+                <div class="priority-item"><input id="priority-3-check" type="checkbox" data-priority="priority-3" /><button class="priority-mark" type="button" data-priority-toggle="priority-3" aria-label="Marcar prioridade 3 como concluída" aria-pressed="false">3</button><span class="line-field" contenteditable="true" data-editable="priority-3" role="textbox" aria-label="Prioridade 3"></span></div>
+                <div class="priority-item"><input id="priority-4-check" type="checkbox" data-priority="priority-4" /><button class="priority-mark" type="button" data-priority-toggle="priority-4" aria-label="Marcar prioridade 4 como concluída" aria-pressed="false">4</button><span class="line-field" contenteditable="true" data-editable="priority-4" role="textbox" aria-label="Prioridade 4"></span></div>
+                <div class="priority-item"><input id="priority-5-check" type="checkbox" data-priority="priority-5" /><button class="priority-mark" type="button" data-priority-toggle="priority-5" aria-label="Marcar prioridade 5 como concluída" aria-pressed="false">5</button><span class="line-field" contenteditable="true" data-editable="priority-5" role="textbox" aria-label="Prioridade 5"></span></div>
+              </div>
+            </section>
+            <label class="week-meta field-group" for="week-picker">
+              <span class="field-label">Semana</span>
+              <input id="week-picker" type="week" aria-label="Selecionar semana do planner" />
+              <span class="week-range-display" id="week-range-display" aria-live="polite"></span>
+            </label>
+          </header>
+
+          <section class="planner-toolbar" aria-label="Barra de ferramentas do planner">
+            <div class="toolbar-primary" aria-label="Ações da semana">
+              <button type="button" id="quick-print" title="Pré-visualizar folha A4 (P)">Prévia A4</button>
+              <button type="button" id="export-ics" title="Exportar arquivo de calendário">Agenda</button>
+              <button type="button" id="enter-focus" title="Modo foco">Foco</button>
+              <button type="button" id="clear-marks" title="Limpar marcações">Limpar marcações</button>
+              <button type="button" id="clear-planner" class="clear-button">Nova semana</button>
+            </div>
+            <div class="toolbar-operational">
+              <p class="live-planning-status" id="live-planning-status" aria-live="polite">Organize os blocos da semana.</p>
+              <div class="day-progress" aria-label="Progresso do dia">
+                <span id="day-progress-fill"></span>
+                <b id="day-progress-label">Dia em andamento</b>
+              </div>
+            </div>
+            <details class="routine-tools">
+              <summary>Modelos de rotina</summary>
+              <div class="routine-tools-body">
+                <div class="control-set">
+                  <label for="template-select">Modelos</label>
+                  <select id="template-select" aria-label="Selecionar modelo de rotina">
+                    <option value="">Carregar modelo salvo</option>
+                  </select>
+                  <span class="category-badge" id="template-category-badge" data-category="all">Todas</span>
+                  <button type="button" id="load-template">Carregar</button>
+                  <button type="button" id="save-template">Salvar modelo</button>
+                  <button type="button" id="duplicate-template">Duplicar</button>
+                  <button type="button" id="rename-template">Renomear</button>
+                  <button type="button" id="delete-template">Excluir</button>
+                  <button type="button" id="export-templates">Exportar</button>
+                  <button type="button" id="import-templates">Importar</button>
+                  <input type="file" id="template-file" accept="application/json,.json" hidden />
+                </div>
+                <div class="category-controls">
+                  <label for="template-category">Categoria</label>
+                  <select id="template-category" aria-label="Categoria do modelo a salvar">
+                    <option value="trabalho">Trabalho</option>
+                    <option value="estudos">Estudos</option>
+                    <option value="pessoal">Pessoal</option>
+                    <option value="saude">Saúde</option>
+                  </select>
+                  <label for="category-filter">Filtrar</label>
+                  <select id="category-filter" aria-label="Filtrar modelos por categoria">
+                    <option value="all">Todas</option>
+                    <option value="trabalho">Trabalho</option>
+                    <option value="estudos">Estudos</option>
+                    <option value="pessoal">Pessoal</option>
+                    <option value="saude">Saúde</option>
+                  </select>
+                  <button type="button" id="archive-week">Registrar semana</button>
+                </div>
+              </div>
+            </details>
+            <details class="utility-tools">
+              <summary>Mais ferramentas</summary>
+              <div class="planner-utilities" aria-label="Ajustes, visualização e dados">
+                <button type="button" id="toggle-theme" aria-pressed="false" title="Alternar tema (T)">Tema</button>
+                <button type="button" id="toggle-bad-day" aria-pressed="false">Dia ruim</button>
+                <button type="button" id="toggle-edit-lock" aria-pressed="false">Bloquear edição</button>
+                <button type="button" id="toggle-eink" aria-pressed="false">E-ink</button>
+                <button type="button" id="toggle-local-alerts" aria-pressed="false">Alertas locais</button>
+                <button type="button" id="export-markdown">Exportar Markdown</button>
+                <button type="button" id="export-backup">Backup JSON</button>
+                <button type="button" id="import-backup">Restaurar JSON</button>
+                <button type="button" id="export-planner-svg">Exportar SVG</button>
+                <input type="file" id="backup-file" accept="application/json,.json" hidden />
+                <div class="backup-paste-tools">
+                  <label for="backup-payload">Backup consolidado</label>
+                  <textarea id="backup-payload" rows="5" spellcheck="false" placeholder="Exporte, copie ou cole aqui um backup JSON completo."></textarea>
+                  <div class="backup-paste-actions">
+                    <button type="button" id="copy-backup">Copiar backup</button>
+                    <button type="button" id="restore-backup-text">Restaurar texto</button>
+                  </div>
+                </div>
+              </div>
+            </details>
+          </section>
+          <p class="deadline-alert" id="deadline-alert" hidden></p>
+
+          <section class="schedule-section" aria-label="Grade horária semanal editável">
+            <div class="quick-fill-bar" aria-label="Sugestões rápidas de preenchimento">
+              <p>Preenchimento rápido</p>
+              <span id="quick-fill-selection" aria-live="polite">Selecione um bloco da grade.</span>
+              <div class="quick-fill-actions">
+                <button type="button" data-quick-fill="study">Estudo 40m</button>
+                <button type="button" data-quick-fill="work">Trabalho · 4h</button>
+                <button type="button" data-quick-fill="college">Faculdade</button>
+                <button type="button" data-quick-fill="training">Treino</button>
+              </div>
+            </div>
+            <div class="mobile-day-tabs" id="mobile-day-tabs" aria-label="Selecionar dia da semana"></div>
+            <div class="schedule-scroll">
+              <div class="schedule-grid" id="schedule-grid"></div>
+            </div>
+          </section>
+
+          <nav class="mobile-bottom-bar" aria-label="Ações principais no celular">
+            <button type="button" data-mobile-proxy="#quick-print">Prévia A4</button>
+            <button type="button" data-mobile-proxy="#toggle-theme">Tema</button>
+            <button type="button" data-mobile-proxy="#enter-focus">Foco</button>
+            <button type="button" id="mobile-menu-open" aria-haspopup="dialog" aria-controls="mobile-tools-dialog">Menu</button>
+          </nav>
+
+          <dialog class="mobile-tools-dialog" id="mobile-tools-dialog" aria-labelledby="mobile-tools-title">
+            <section class="mobile-tools-card">
+              <header>
+                <div>
+                  <p>Organização</p>
+                  <h2 id="mobile-tools-title">Ferramentas</h2>
+                </div>
+                <button type="button" id="mobile-menu-close">Fechar</button>
+              </header>
+              <section class="mobile-tools-section" aria-label="Ações da semana">
+                <p>Ações da semana</p>
+                <div class="mobile-command-primary">
+                  <button type="button" data-mobile-proxy="#export-ics">Agenda</button>
+                  <button type="button" data-mobile-proxy="#clear-marks">Limpar marcações</button>
+                  <button type="button" data-mobile-proxy="#clear-planner">Nova semana</button>
+                </div>
+              </section>
+              <section class="mobile-quick-fill" aria-label="Preenchimento rápido no celular">
+                <p>Preenchimento rápido</p>
+                <span id="mobile-quick-fill-selection">Selecione um bloco da grade.</span>
+                <div>
+                  <button type="button" data-mobile-quick-fill="study">Estudo 40m</button>
+                  <button type="button" data-mobile-quick-fill="work">Trabalho · 4h</button>
+                  <button type="button" data-mobile-quick-fill="college">Faculdade</button>
+                  <button type="button" data-mobile-quick-fill="training">Treino</button>
+                </div>
+              </section>
+              <div class="mobile-tools-slot" id="mobile-tools-slot"></div>
+            </section>
+          </dialog>
+
+          <section class="review-strip" aria-label="Anotações e revisão semanal">
+            <aside class="notes-panel" aria-labelledby="notes-title">
+              <div class="panel-heading">
+                <p class="panel-kicker">Revisão</p>
+                <h2 id="notes-title">Melhoria Kaizen</h2>
+              </div>
+              <div class="note-lines">
+                <div class="note-line"><b>1</b><span contenteditable="true" data-editable="note-1" role="textbox" aria-label="Primeira melhoria Kaizen"></span></div>
+                <div class="note-line"><b>2</b><span contenteditable="true" data-editable="note-2" role="textbox" aria-label="Segunda melhoria Kaizen"></span></div>
+                <div class="note-line"><b>3</b><span contenteditable="true" data-editable="note-3" role="textbox" aria-label="Terceira melhoria Kaizen"></span></div>
+              </div>
+            </aside>
+
+            <aside class="checklist-panel" aria-labelledby="checklist-title">
+              <div class="panel-heading">
+                <p class="panel-kicker">Execução</p>
+                <h2 id="checklist-title">Checklist semanal</h2>
+              </div>
+              <div class="checklist-items">
+                <label><input type="checkbox" data-checklist="checklist-1" /><span contenteditable="true" data-editable="checklist-label-1" role="textbox" aria-label="Primeiro item do checklist semanal">Revisar prioridades</span></label>
+                <label><input type="checkbox" data-checklist="checklist-2" /><span contenteditable="true" data-editable="checklist-label-2" role="textbox" aria-label="Segundo item do checklist semanal">Preparar materiais</span></label>
+                <label><input type="checkbox" data-checklist="checklist-3" /><span contenteditable="true" data-editable="checklist-label-3" role="textbox" aria-label="Terceiro item do checklist semanal">Organizar agenda</span></label>
+              </div>
+            </aside>
+
+            <aside class="focus-panel" aria-labelledby="focus-title">
+              <div class="panel-heading">
+                <p class="panel-kicker">Direção</p>
+                <h2 id="focus-title">Regra noturna 5S</h2>
+              </div>
+              <p contenteditable="true" data-editable="weekly-focus" role="textbox" aria-label="Foco da semana">Defina a ação que tornará esta semana mais simples e consistente.</p>
+              <p class="priority-summary" id="priority-summary" aria-live="polite">0 de 5 prioridades concluídas</p>
+            </aside>
+            <aside class="scratchpad-panel" aria-labelledby="scratchpad-title">
+              <div class="panel-heading">
+                <p class="panel-kicker">Captura rápida</p>
+                <h2 id="scratchpad-title">Pendências</h2>
+              </div>
+              <div class="scratchpad-lines"><p contenteditable="true" data-editable="scratchpad" role="textbox" aria-label="Anotações rápidas">Registre aqui uma pendência antes de transcrevê-la para a revisão.</p></div>
+            </aside>
+          </section>
+
+          <details class="secondary-tools" id="acompanhamento">
+            <summary>Acompanhamento semanal e metas mensais</summary>
+            <div class="secondary-tools-body">
+              <div class="secondary-actions">
+                <button type="button" id="export-data-csv">Exportar histórico e metas em CSV</button>
+              </div>
+          <section class="history-panel" aria-labelledby="history-title">
+            <div class="history-heading">
+              <p class="panel-kicker">Acompanhamento</p>
+              <h2 id="history-title">Histórico de prioridades</h2>
+              <p class="streak-indicator" id="streak-indicator">Sequência atual: 0 semanas</p>
+            </div>
+            <div class="history-list" id="history-list" aria-live="polite"></div>
+          </section>
+
+          <section class="monthly-goals-panel" aria-labelledby="monthly-goals-title">
+            <div class="monthly-goals-heading">
+              <p class="panel-kicker">Planejamento mensal</p>
+              <h2 id="monthly-goals-title">Metas por categoria</h2>
+            </div>
+            <div class="monthly-goals-content">
+              <div class="goal-controls">
+                <label for="goal-category">Vincular categoria</label>
+                <select id="goal-category" aria-label="Categoria da nova meta mensal">
+                  <option value="trabalho">Trabalho</option>
+                  <option value="estudos">Estudos</option>
+                  <option value="pessoal">Pessoal</option>
+                  <option value="saude">Saúde</option>
+                </select>
+                <label for="goal-deadline">Prazo</label>
+                <input type="date" id="goal-deadline" aria-label="Prazo da nova meta mensal" />
+                <label for="goal-reminder-time">Lembrete</label>
+                <input type="time" id="goal-reminder-time" value="08:00" aria-label="Horário padrão de lembrete da nova meta mensal" />
+                <label class="recurrence-control"><input type="checkbox" id="goal-recurring" /> Repetir mensalmente</label>
+                <button type="button" id="add-goal">Adicionar meta</button>
+              </div>
+              <div class="monthly-goals-list" id="monthly-goals-list" aria-live="polite"></div>
+            </div>
+          </section>
+          <section class="category-chart-panel" aria-labelledby="category-chart-title">
+            <div class="category-chart-heading">
+              <p class="panel-kicker">Comparativo</p>
+              <h2 id="category-chart-title">Conclusões por categoria</h2>
+            </div>
+            <div class="category-chart" id="category-chart" aria-label="Gráfico de metas mensais concluídas por categoria"></div>
+          </section>
+          <section class="weekly-load-panel" aria-labelledby="weekly-load-title">
+            <div class="weekly-load-heading">
+              <p class="panel-kicker">Ritmo semanal</p>
+              <h2 id="weekly-load-title">Carga por categoria</h2>
+            </div>
+            <div class="weekly-load" id="weekly-load" aria-label="Distribuição de tarefas na semana por categoria"></div>
+          </section>
+          <section class="calendar-panel" aria-labelledby="calendar-title">
+            <div class="calendar-heading">
+              <p class="panel-kicker">Distribuição mensal</p>
+              <h2 id="calendar-title">Calendário de metas</h2>
+            </div>
+            <div class="calendar-content">
+              <div class="calendar-controls">
+                <button type="button" id="calendar-prev" aria-label="Mês anterior">Anterior</button>
+                <p id="calendar-label" aria-live="polite"></p>
+                <button type="button" id="calendar-next" aria-label="Próximo mês">Próximo</button>
+              </div>
+              <div class="calendar-weekdays" aria-hidden="true">
+                <span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span><span>Dom</span>
+              </div>
+              <div class="monthly-calendar" id="monthly-calendar" aria-label="Calendário mensal interativo"></div>
+            </div>
+          </section>
+          <section class="daily-agenda-panel" aria-labelledby="daily-agenda-title">
+            <div class="daily-agenda-heading">
+              <p class="panel-kicker">Detalhamento diário</p>
+              <h2 id="daily-agenda-title">Agenda do dia</h2>
+            </div>
+            <div class="daily-agenda-content">
+              <div class="daily-agenda-toolbar">
+                <p class="daily-agenda-date" id="daily-agenda-date">Selecione uma data no calendário.</p>
+                <div class="daily-agenda-toolbar-actions">
+                  <button type="button" id="block-daily-time" disabled>Bloquear horário</button>
+                  <button type="button" id="add-daily-item" disabled>Adicionar compromisso</button>
+                </div>
+              </div>
+              <p class="daily-agenda-summary" id="daily-agenda-summary"></p>
+              <div class="daily-agenda-list" id="daily-agenda-list" aria-live="polite"></div>
+            </div>
+          </section>
+          <section class="capacity-panel" aria-labelledby="capacity-title">
+            <div class="capacity-heading">
+              <p class="panel-kicker">Disponibilidade</p>
+              <h2 id="capacity-title">Capacidade semanal</h2>
+            </div>
+            <div class="capacity-content" id="capacity-content" aria-live="polite"></div>
+          </section>
+          <section class="work-hours-panel" aria-labelledby="work-hours-title">
+            <div class="work-hours-heading">
+              <p class="panel-kicker">Jornada padrão</p>
+              <h2 id="work-hours-title">Horários de trabalho</h2>
+            </div>
+            <div class="work-hours-content" id="work-hours-content" aria-live="polite"></div>
+          </section>
+          <section class="time-off-panel" aria-labelledby="time-off-title">
+            <div class="time-off-heading">
+              <p class="panel-kicker">Indisponibilidades</p>
+              <h2 id="time-off-title">Feriados e folgas</h2>
+            </div>
+            <div class="time-off-content">
+              <div class="time-off-controls">
+                <input type="date" id="time-off-date" aria-label="Data do feriado ou folga" />
+                <input type="text" id="time-off-label" placeholder="Nome do feriado ou folga" aria-label="Nome do feriado ou folga" />
+                <button type="button" id="add-time-off">Adicionar data</button>
+                <select id="recurring-time-off-day" aria-label="Dia recorrente de folga">
+                  <option value="mon">Segunda-feira</option><option value="tue">Terça-feira</option><option value="wed">Quarta-feira</option><option value="thu">Quinta-feira</option><option value="fri">Sexta-feira</option><option value="sat">Sábado</option><option value="sun">Domingo</option>
+                </select>
+                <button type="button" id="add-recurring-time-off">Adicionar folga recorrente</button>
+                <button type="button" id="import-national-holidays">Importar feriados nacionais</button>
+              </div>
+              <div class="time-off-list" id="time-off-list" aria-live="polite"></div>
+            </div>
+          </section>
+          <section class="half-day-panel" aria-labelledby="half-day-title">
+            <div class="half-day-heading">
+              <p class="panel-kicker">Capacidade proporcional</p>
+              <h2 id="half-day-title">Meias jornadas</h2>
+            </div>
+            <div class="half-day-content">
+              <div class="half-day-controls">
+                <input type="date" id="half-day-date" aria-label="Data da meia jornada" />
+                <input type="text" id="half-day-label" placeholder="Motivo ou observação" aria-label="Motivo ou observação da meia jornada" />
+                <button type="button" id="add-half-day">Adicionar meia jornada</button>
+                <p>Considera 50% da jornada padrão configurada para a data.</p>
+              </div>
+              <div class="half-day-list" id="half-day-list" aria-live="polite"></div>
+            </div>
+          </section>
+          <section class="monthly-report-panel" aria-labelledby="monthly-report-title">
+            <div class="monthly-report-heading">
+              <p class="panel-kicker">Utilização mensal</p>
+              <h2 id="monthly-report-title">Relatório de tempo</h2>
+            </div>
+            <div class="monthly-report-content" id="monthly-report-content" aria-live="polite"></div>
+          </section>
+          <section class="annual-availability-panel" aria-labelledby="annual-availability-title">
+            <div class="annual-availability-heading">
+              <p class="panel-kicker">Panorama anual</p>
+              <h2 id="annual-availability-title">Disponibilidade anual</h2>
+            </div>
+            <div class="annual-availability-content">
+              <div class="annual-availability-controls">
+                <button type="button" id="annual-prev" aria-label="Ano anterior">Anterior</button>
+                <p id="annual-label" aria-live="polite"></p>
+                <button type="button" id="annual-next" aria-label="Próximo ano">Próximo</button>
+              </div>
+              <p class="annual-summary" id="annual-summary"></p>
+              <div class="annual-legend" aria-label="Legenda da disponibilidade anual">
+                <span data-type="available">Disponível</span>
+                <span data-type="half-day">Meia jornada</span>
+                <span data-type="time-off">Feriado ou folga</span>
+                <span data-type="no-work">Sem jornada padrão</span>
+              </div>
+              <div class="annual-months" id="annual-months" aria-label="Calendário anual interativo de disponibilidade"></div>
+            </div>
+          </section>
+          <section class="adherence-panel" aria-labelledby="adherence-title">
+            <div class="adherence-heading">
+              <p class="panel-kicker">Retrospectiva</p>
+              <h2 id="adherence-title">Aderência e fechamento</h2>
+            </div>
+            <div class="adherence-content">
+              <div class="adherence-chart" id="adherence-chart" aria-label="Gráfico semanal de aderência por dia"></div>
+              <p class="sunday-summary" id="sunday-summary"></p>
+              <div class="monthly-consistency" id="monthly-consistency" aria-label="Estatísticas mensais de estudo e ritual"></div>
+            </div>
+          </section>
+          <section class="bottleneck-panel" aria-labelledby="bottleneck-title">
+            <div class="bottleneck-heading">
+              <p class="panel-kicker">Ajuste de rota</p>
+              <h2 id="bottleneck-title">Gargalos da semana</h2>
+            </div>
+            <div class="bottleneck-content">
+              <div class="bottleneck-controls">
+                <button type="button" data-bottleneck="Atraso no ônibus">Atraso no ônibus</button>
+                <button type="button" data-bottleneck="Cansaço excessivo">Cansaço excessivo</button>
+                <button type="button" data-bottleneck="Distração com tela">Distração com tela</button>
+              </div>
+              <div class="bottleneck-list" id="bottleneck-list" aria-live="polite"></div>
+            </div>
+          </section>
+          <section class="odanote-panel" aria-labelledby="odanote-title">
+            <div class="odanote-heading">
+              <p class="panel-kicker">Revisão de estudos</p>
+              <h2 id="odanote-title">Odanote</h2>
+            </div>
+            <div class="odanote-content">
+              <div class="odanote-controls">
+                <input id="odanote-subject" type="text" placeholder="Matéria" aria-label="Matéria do erro" />
+                <input id="odanote-text" type="text" placeholder="Erro ou dúvida para revisar sábado" aria-label="Erro ou dúvida" />
+                <button type="button" id="add-odanote">Registrar erro</button>
+              </div>
+              <div class="odanote-list" id="odanote-list" aria-live="polite"></div>
+            </div>
+          </section>
+          <section class="audio-note-panel" aria-labelledby="audio-note-title">
+            <div class="audio-note-heading">
+              <p class="panel-kicker">Revisão falada</p>
+              <h2 id="audio-note-title">Áudio matinal</h2>
+            </div>
+            <div class="audio-note-content">
+              <p id="audio-note-status">Grave um resumo curto para ouvir no início da manhã.</p>
+              <div class="audio-note-actions">
+                <button type="button" id="record-audio-note">Gravar resumo</button>
+                <button type="button" id="play-audio-note" disabled>Ouvir resumo</button>
+                <button type="button" id="delete-audio-note" disabled>Apagar áudio</button>
+              </div>
+            </div>
+          </section>
+            </div>
+          </details>
+        </div>
+        <p class="save-status" aria-live="polite"></p>
+      </article>
+    </main>
+    <section class="focus-overlay" id="focus-overlay" aria-label="Modo foco" aria-hidden="true" hidden>
+      <div class="focus-overlay-card">
+        <p class="panel-kicker">Modo foco</p>
+        <p class="focus-active-block" id="focus-active-block">Organize o próximo bloco.</p>
+        <p class="focus-clock" id="focus-clock">25:00</p>
+        <p class="focus-note" id="focus-note">Pomodoro de 25 minutos. Pausas curtas preservam o ritmo.</p>
+        <div class="focus-actions">
+          <button type="button" id="focus-start">Iniciar</button>
+          <button type="button" id="focus-reset">Reiniciar</button>
+          <button type="button" id="focus-exit">Voltar ao planner</button>
+        </div>
+      </div>
+    </section>
+    <section class="print-preview" id="print-preview" role="dialog" aria-modal="true" aria-labelledby="print-preview-title" aria-hidden="true" hidden>
+      <div class="print-preview-card">
+        <div class="print-preview-header">
+          <div>
+            <p class="panel-kicker">Saída física</p>
+            <h2 id="print-preview-title">Pré-visualização da folha A4</h2>
+            <p>Confira a prancha única antes de abrir a caixa de impressão do navegador.</p>
+          </div>
+          <label class="print-mark-mode" for="print-mark-mode">Marcações na folha
+            <select id="print-mark-mode">
+              <option value="physical">Quadrados vazios para preencher à mão</option>
+              <option value="record">Registro das marcações concluídas</option>
+            </select>
+          </label>
+        </div>
+        <div class="print-preview-stage"><div class="print-preview-sheet" id="print-preview-sheet"></div></div>
+        <div class="print-preview-actions">
+          <button type="button" id="print-preview-close">Voltar ao planner</button>
+          <button type="button" id="print-preview-confirm">Imprimir folha A4</button>
+        </div>
+      </div>
+    </section>
+    <dialog class="planner-dialog" id="planner-dialog" aria-labelledby="planner-dialog-title" aria-describedby="planner-dialog-description">
+      <form method="dialog" id="planner-dialog-form" class="planner-dialog-card">
+        <p class="panel-kicker">Organização</p>
+        <h2 id="planner-dialog-title"></h2>
+        <p id="planner-dialog-description"></p>
+        <div class="planner-dialog-fields" id="planner-dialog-fields"></div>
+        <div class="planner-dialog-actions">
+          <button type="button" id="planner-dialog-cancel">Cancelar</button>
+          <button type="submit" id="planner-dialog-submit">Salvar</button>
+        </div>
+      </form>
+    </dialog>
+    <script type="module" src="./modules/app.js"></script>
+  </body>
+</html>

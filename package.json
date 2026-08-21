@@ -1,0 +1,12 @@
+{
+  "name": "planner-semanal-pwa-estatico",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Adaptador sem dependências para visualizar localmente o Planner PWA estático.",
+  "scripts": {
+    "dev": "node static-preview.mjs",
+    "test": "node --test tests/static-pwa.test.mjs",
+    "audit:responsive": "node tests/responsive-cdp-audit.mjs"
+  }
+}

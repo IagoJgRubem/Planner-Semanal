@@ -1,0 +1,203 @@
+{
+  "plannerUrl": "http://127.0.0.1:3000/planner.html",
+  "results": [
+    {
+      "viewport": {
+        "width": 320,
+        "height": 812
+      },
+      "overflowPx": 0,
+      "targets": [
+        {
+          "label": "Seg",
+          "width": 44,
+          "height": 44
+        },
+        {
+          "label": "Ter",
+          "width": 44,
+          "height": 44
+        },
+        {
+          "label": "Qua",
+          "width": 44,
+          "height": 44
+        },
+        {
+          "label": "Qui",
+          "width": 44,
+          "height": 44
+        },
+        {
+          "label": "Sex",
+          "width": 44,
+          "height": 44
+        },
+        {
+          "label": "Sáb",
+          "width": 44,
+          "height": 44
+        },
+        {
+          "label": "Dom",
+          "width": 44,
+          "height": 44
+        },
+        {
+          "label": "Prévia A4",
+          "width": 67.31,
+          "height": 44
+        },
+        {
+          "label": "Tema",
+          "width": 67.31,
+          "height": 44
+        },
+        {
+          "label": "Foco",
+          "width": 67.31,
+          "height": 44
+        },
+        {
+          "label": "Menu",
+          "width": 67.31,
+          "height": 44
+        }
+      ],
+      "undersizedTargets": [],
+      "mobileBarPresent": true
+    },
+    {
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "overflowPx": 0,
+      "targets": [
+        {
+          "label": "Seg",
+          "width": 46.7,
+          "height": 44
+        },
+        {
+          "label": "Ter",
+          "width": 46.72,
+          "height": 44
+        },
+        {
+          "label": "Qua",
+          "width": 46.72,
+          "height": 44
+        },
+        {
+          "label": "Qui",
+          "width": 46.7,
+          "height": 44
+        },
+        {
+          "label": "Sex",
+          "width": 46.72,
+          "height": 44
+        },
+        {
+          "label": "Sáb",
+          "width": 46.72,
+          "height": 44
+        },
+        {
+          "label": "Dom",
+          "width": 46.72,
+          "height": 44
+        },
+        {
+          "label": "Prévia A4",
+          "width": 81.06,
+          "height": 44
+        },
+        {
+          "label": "Tema",
+          "width": 81.06,
+          "height": 44
+        },
+        {
+          "label": "Foco",
+          "width": 81.06,
+          "height": 44
+        },
+        {
+          "label": "Menu",
+          "width": 81.06,
+          "height": 44
+        }
+      ],
+      "undersizedTargets": [],
+      "mobileBarPresent": true
+    },
+    {
+      "viewport": {
+        "width": 420,
+        "height": 812
+      },
+      "overflowPx": 0,
+      "targets": [
+        {
+          "label": "Seg",
+          "width": 53.14,
+          "height": 44
+        },
+        {
+          "label": "Ter",
+          "width": 53.14,
+          "height": 44
+        },
+        {
+          "label": "Qua",
+          "width": 53.14,
+          "height": 44
+        },
+        {
+          "label": "Qui",
+          "width": 53.14,
+          "height": 44
+        },
+        {
+          "label": "Sex",
+          "width": 53.14,
+          "height": 44
+        },
+        {
+          "label": "Sáb",
+          "width": 53.14,
+          "height": 44
+        },
+        {
+          "label": "Dom",
+          "width": 53.14,
+          "height": 44
+        },
+        {
+          "label": "Prévia A4",
+          "width": 92.31,
+          "height": 44
+        },
+        {
+          "label": "Tema",
+          "width": 92.31,
+          "height": 44
+        },
+        {
+          "label": "Foco",
+          "width": 92.31,
+          "height": 44
+        },
+        {
+          "label": "Menu",
+          "width": 92.31,
+          "height": 44
+        }
+      ],
+      "undersizedTargets": [],
+      "mobileBarPresent": true
+    }
+  ]
+}
