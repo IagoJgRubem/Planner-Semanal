@@ -1,4 +1,5 @@
-import { createBackupController } from "./backup-controller.js";
+import { createBackupController, CONSOLIDATED_BACKUP_KEY } from "./backup-controller.js";
+import { createJSONStore, loadPlanner as loadPlannerFromStore, createDebouncedPersist } from "./storage.js";
 import { getPlannerElements } from "./app-shell.js";
 import { createPlannerUiState } from "./planner-ui-state.js";
 import {
@@ -34,7 +35,7 @@ const KEY = {
   profile: "planner.profile",
   prefs: "planner.prefs",
   rollover: "planner.rollover",
-  backupConsolidated: "planner.backup-consolidated",
+  backupConsolidated: CONSOLIDATED_BACKUP_KEY,
 };
 
 const DAY_KEYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
@@ -77,35 +78,21 @@ const REGIONAL_HOLIDAYS = {
   "America/Rio_Branco": [{ month: 12, day: 28, label: "Aniversário de Rio Branco" }],
 };
 
+const jsonStore = createJSONStore(localStorage);
 function readJSON(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch {
-    localStorage.removeItem(key);
-    return fallback;
-  }
+  return jsonStore.read(key, fallback);
 }
 function writeJSON(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
-  return value;
+  return jsonStore.write(key, value);
 }
 function readText(key, fallback = "") {
-  return localStorage.getItem(key) ?? fallback;
+  return jsonStore.readText(key, fallback);
 }
 function writeText(key, value) {
-  localStorage.setItem(key, value);
-  return value;
+  return jsonStore.writeText(key, value);
 }
 function safeParse(raw) {
   try { return JSON.parse(raw); } catch { return {}; }
-}
-function debounce(fn, wait) {
-  let timer;
-  return (...args) => {
-    window.clearTimeout(timer);
-    timer = window.setTimeout(() => fn(...args), wait);
-  };
 }
 function randomId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -119,15 +106,7 @@ function rangesOverlap(startTime, startDuration, endTime, endDuration) {
 }
 
 function loadPlanner() {
-  const defaults = { fields: {}, checks: {}, checklist: {}, priorities: {} };
-  const parsed = safeParse(readText(KEY.planner, ""));
-  if (!parsed || typeof parsed !== "object") return defaults;
-  return {
-    fields: parsed.fields && typeof parsed.fields === "object" ? parsed.fields : {},
-    checks: parsed.checks && typeof parsed.checks === "object" ? parsed.checks : {},
-    checklist: parsed.checklist && typeof parsed.checklist === "object" ? parsed.checklist : {},
-    priorities: parsed.priorities && typeof parsed.priorities === "object" ? parsed.priorities : {},
-  };
+  return loadPlannerFromStore(localStorage, KEY.planner);
 }
 
 let plannerDoc = loadPlanner();
@@ -238,7 +217,7 @@ function persistPlanner() {
   refreshMetrics();
   backupController.queueSync(KEY.backupConsolidated);
 }
-const debouncedPersist = debounce(persistPlanner, 350);
+const debouncedPersist = createDebouncedPersist(persistPlanner, 350);
 
 function applyStoredValues() {
   uiState.applyFieldValues(plannerDoc.fields);

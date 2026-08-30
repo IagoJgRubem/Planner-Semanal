@@ -1,4 +1,9 @@
-export function createBackupController({ storage, app, version, storageKeys, collectSnapshot, restoreSnapshot, field, download, status }) {
+// Snapshots JSON versionados sob a chave consolidada do planner,
+// viabilizando exportação, cópia e restauração manual de dados locais.
+
+export const CONSOLIDATED_BACKUP_KEY = "planner.backup-consolidated";
+
+export function createBackupController({ storage, app, version, storageKeys, collectSnapshot, restoreSnapshot, field, download, status, consolidatedKey = CONSOLIDATED_BACKUP_KEY }) {
   let timerId = null;
 
   function payload() {
@@ -26,6 +31,7 @@ export function createBackupController({ storage, app, version, storageKeys, col
 
   async function restore(payloadValue, consolidatedKey) {
     if (payloadValue?.app !== app) throw new Error("Estrutura inválida");
+    if (typeof payloadValue.version === "number" && payloadValue.version > version) throw new Error("Backup de versão mais recente");
     if (payloadValue.data && typeof payloadValue.data === "object") {
       Object.entries(payloadValue.data).forEach(([key, value]) => {
         if (typeof value === "string") storage.setItem(key, value);
