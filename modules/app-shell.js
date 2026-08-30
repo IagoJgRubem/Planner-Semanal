@@ -1,21 +1,50 @@
-import { bootstrapPlanner } from "./bootstrap.js";
-
 export function startPlanner(configuration) {
-  return bootstrapPlanner(configuration);
+  // Mantido por compatibilidade de API: a composição atual é autônoma em
+  // modules/app.js, que consome getPlannerElements diretamente.
+  return configuration;
 }
 
 export function getPlannerElements(root = document) {
   const one = (selector) => root.querySelector(selector);
+  const all = (selector) => [...root.querySelectorAll(selector)];
   return {
-    plannerDialogElement: one("#planner-dialog"), plannerDialogTitle: one("#planner-dialog-title"), plannerDialogDescription: one("#planner-dialog-description"), plannerDialogForm: one("#planner-dialog-form"), plannerDialogFields: one("#planner-dialog-fields"), plannerDialogSubmit: one("#planner-dialog-submit"), plannerDialogCancel: one("#planner-dialog-cancel"),
-    grid: one("#schedule-grid"), saveStatus: one(".save-status"), prioritySummary: one("#priority-summary"), weekPicker: one("#week-picker"), weekRangeDisplay: one("#week-range-display"),
-    templateSelect: one("#template-select"), templateCategory: one("#template-category"), categoryFilter: one("#category-filter"), templateCategoryBadge: one("#template-category-badge"), loadTemplateButton: one("#load-template"), saveTemplateButton: one("#save-template"), duplicateTemplateButton: one("#duplicate-template"), renameTemplateButton: one("#rename-template"), deleteTemplateButton: one("#delete-template"), exportTemplatesButton: one("#export-templates"), importTemplatesButton: one("#import-templates"), templateFileInput: one("#template-file"), archiveWeekButton: one("#archive-week"),
-    historyList: one("#history-list"), streakIndicator: one("#streak-indicator"), goalCategory: one("#goal-category"), goalDeadline: one("#goal-deadline"), goalReminderTime: one("#goal-reminder-time"), goalRecurring: one("#goal-recurring"), addGoalButton: one("#add-goal"), monthlyGoalsList: one("#monthly-goals-list"), categoryChart: one("#category-chart"), weeklyLoad: one("#weekly-load"), exportDataCsvButton: one("#export-data-csv"),
-    calendarLabel: one("#calendar-label"), monthlyCalendar: one("#monthly-calendar"), calendarPreviousButton: one("#calendar-prev"), calendarNextButton: one("#calendar-next"), dailyAgendaDate: one("#daily-agenda-date"), dailyAgendaSummary: one("#daily-agenda-summary"), dailyAgendaList: one("#daily-agenda-list"), blockDailyTimeButton: one("#block-daily-time"), addDailyItemButton: one("#add-daily-item"),
-    capacityContent: one("#capacity-content"), workHoursContent: one("#work-hours-content"), timeOffDate: one("#time-off-date"), timeOffLabel: one("#time-off-label"), addTimeOffButton: one("#add-time-off"), recurringTimeOffDay: one("#recurring-time-off-day"), addRecurringTimeOffButton: one("#add-recurring-time-off"), importNationalHolidaysButton: one("#import-national-holidays"), timeOffList: one("#time-off-list"), halfDayDate: one("#half-day-date"), halfDayLabel: one("#half-day-label"), addHalfDayButton: one("#add-half-day"), halfDayList: one("#half-day-list"), monthlyReportContent: one("#monthly-report-content"),
-    annualPreviousButton: one("#annual-prev"), annualNextButton: one("#annual-next"), annualLabel: one("#annual-label"), annualSummary: one("#annual-summary"), annualMonths: one("#annual-months"), clearPlannerButton: one("#clear-planner"), secondaryTools: one("#acompanhamento"), mobileDayTabs: one("#mobile-day-tabs"), livePlanningStatus: one("#live-planning-status"),
-    quickPrintButton: one("#quick-print"), quickFillSelection: one("#quick-fill-selection"), mobileQuickFillSelection: one("#mobile-quick-fill-selection"), quickFillButtons: [...root.querySelectorAll("[data-quick-fill]")], exportIcsButton: one("#export-ics"), toggleThemeButton: one("#toggle-theme"), enterFocusButton: one("#enter-focus"), clearMarksButton: one("#clear-marks"), focusOverlay: one("#focus-overlay"), focusActiveBlock: one("#focus-active-block"), focusClock: one("#focus-clock"), focusStartButton: one("#focus-start"), focusResetButton: one("#focus-reset"), focusExitButton: one("#focus-exit"), dayProgressFill: one("#day-progress-fill"), dayProgressLabel: one("#day-progress-label"),
-    toggleBadDayButton: one("#toggle-bad-day"), toggleEditLockButton: one("#toggle-edit-lock"), toggleEinkButton: one("#toggle-eink"), toggleLocalAlertsButton: one("#toggle-local-alerts"), exportMarkdownButton: one("#export-markdown"), exportBackupButton: one("#export-backup"), importBackupButton: one("#import-backup"), exportPlannerSvgButton: one("#export-planner-svg"), backupFileInput: one("#backup-file"), backupPayloadField: one("#backup-payload"), copyBackupButton: one("#copy-backup"), restoreBackupTextButton: one("#restore-backup-text"),
-    printPreview: one("#print-preview"), printPreviewSheet: one("#print-preview-sheet"), printPreviewCloseButton: one("#print-preview-close"), printPreviewConfirmButton: one("#print-preview-confirm"), printMarkMode: one("#print-mark-mode"), adherenceChart: one("#adherence-chart"), sundaySummary: one("#sunday-summary"), monthlyConsistency: one("#monthly-consistency"), bottleneckList: one("#bottleneck-list"), odanoteSubject: one("#odanote-subject"), odanoteText: one("#odanote-text"), addOdanoteButton: one("#add-odanote"), odanoteList: one("#odanote-list"), audioNoteStatus: one("#audio-note-status"), recordAudioNoteButton: one("#record-audio-note"), playAudioNoteButton: one("#play-audio-note"), deleteAudioNoteButton: one("#delete-audio-note"),
+    saveStatus: one(".save-status"),
+    tabButtons: all(".tab-button"),
+    panels: { agenda: one("#panel-agenda"), tracking: one("#panel-tracking"), settings: one("#panel-settings") },
+    weekPicker: one("#week-picker"),
+    printWeekRange: one("#print-week-range"),
+    weekMetaTitle: one("#week-meta-title"),
+    weekMetaRange: one("#week-meta-range"),
+    mobileTabs: one("#mobile-day-tabs"),
+    grid: one("#schedule-grid"),
+    templateSelect: one("#template-select"),
+    prioritySummary: one("#priority-summary"),
+    agendaList: one("#agenda-list"),
+    agendDateLabel: one("#agenda-date-label"),
+    agendaSummary: one("#agenda-summary"),
+    capacityContent: one("#capacity-content"),
+    streakIndicator: one("#streak-indicator"),
+    adherenceValue: one("#adherence-value"),
+    adherenceFill: one("#adherence-fill"),
+    adherenceBar: one(".adherence-bar"),
+    adherenceNote: one("#adherence-note"),
+    categoryChart: one("#category-chart"),
+    goalsList: one("#monthly-goals-list"),
+    calendarTitle: one("#calendar-title"),
+    calendarGrid: one("#monthly-calendar"),
+    historyList: one("#history-list"),
+    profileAvatar: one("#profile-avatar"),
+    profileSummary: one("#profile-summary"),
+    backupField: one("#backup-field"),
+    backupStatus: one("#backup-status"),
+    focusClock: one("#focus-clock"),
+    focusStatus: one("#focus-status"),
+    dialogElement: one("#planner-dialog"),
+    dialogTitle: one("#dialog-title"),
+    dialogDescription: one("#dialog-detail"),
+    dialogForm: one(".dialog-form"),
+    dialogFields: one("#dialog-fields"),
+    dialogSubmit: one("#dialog-submit"),
+    dialogCancel: one("#dialog-cancel"),
   };
 }

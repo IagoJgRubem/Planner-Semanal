@@ -1,7 +1,8 @@
 {
-  "name": "Planner Operacional Semanal",
-  "short_name": "Planner Semanal",
-  "description": "Planner semanal editorial com rotina, metas e acompanhamento local.",
+  "id": "planner-operacional-semanal",
+  "name": "Planner Semanal",
+  "short_name": "Planner",
+  "description": "Planner semanal com rotina, metas e acompanhamento local.",
   "lang": "pt-BR",
   "start_url": "./",
   "scope": "./",

@@ -37,7 +37,7 @@ export function buildPlannerSvg({ days, times, entriesForDay }) {
       const x = startX + column * cellWidth;
       const y = startY + row * cellHeight;
       const heightForEntry = Math.max(cellHeight, Math.round((entry.duration / 60) * cellHeight));
-      const fill = entry.base.includes("study") ? "#fff6dc" : entry.base.includes("work") ? "#f1f5f9" : entry.base.includes("personal") ? "#eef8f1" : "#fffefa";
+      const fill = entry.base.includes("work") ? "#f1f5f9" : entry.base.includes("personal") ? "#eef8f1" : "#fffefa";
       parts.push(`<rect x="${x + 1}" y="${y + 1}" width="${cellWidth - 2}" height="${heightForEntry - 2}" fill="${fill}" stroke="#9ca3af"/><text x="${x + 8}" y="${y + 30}" class="task">${escapeXml(entry.text)}</text><text x="${x + 8}" y="${y + 52}" class="small">${entry.duration} min</text>`);
     });
   });

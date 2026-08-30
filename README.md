@@ -1,4 +1,4 @@
-# Planner Operacional Semanal
+# Planner Semanal
 
 PWA estático para planejar rotina semanal, prioridades, agenda diária, metas mensais, capacidade de tempo e impressão A4 em paisagem. O projeto usa HTML declarativo, CSS e módulos ES nativos; não depende de React, servidor, banco de dados ou API externa.
 
@@ -37,6 +37,16 @@ pnpm audit:responsive > docs/rubrica-mobile-medicoes.json
 ```
 
 Consulte `docs/rubrica-qualidade.md` e `docs/validacao-impressao-a4.md` para os critérios, limites e resultados mais recentes.
+
+## Publicar no GitHub Pages
+
+1. Crie um repositório **vazio** no GitHub, sem README, `.gitignore` ou licença inicializados pela interface.
+2. Envie os arquivos deste diretório à branch `main`.
+3. Em **Settings → Pages**, escolha **GitHub Actions** como origem de publicação. Essa seleção só é necessária uma vez.
+4. A cada `push` para `main`, o workflow `.github/workflows/deploy.yml` executa a suíte nativa de 14 regressões e, somente se ela for aprovada, publica o artefato estático no GitHub Pages. Pull requests executam apenas os testes.
+5. Mantenha os caminhos relativos existentes (`./`), necessários para executar também em subdiretórios como `https://usuario.github.io/planner/`.
+
+O arquivo `.nojekyll` já está presente para evitar processamento Jekyll. Não envie `node_modules`, `.env`, logs, certificados ou chaves; essas classes de arquivos já constam no `.gitignore`.
 
 ## Segurança e privacidade
 

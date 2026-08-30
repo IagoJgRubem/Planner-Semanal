@@ -4,15 +4,14 @@ export function bootstrapPlanner({ actions, elements, storage, dayKeys, getSelec
     loadPlanner, refreshContinuousBlocks, applySlotMarkValues, applyTheme, applyBadDayMode, applyEditLock,
     applyEinkMode, applyLocalAlerts, renderTemplateOptions, renderHistory, renderMonthlyGoals, renderDailyAgenda,
     renderWeeklyCapacity, renderWorkHours, renderTimeOff, renderHalfDays, renderMonthlyReport,
-    renderAnnualAvailability, updateRewardStates, renderAdherence, renderBottlenecks, renderOdanote,
-  loadAudioNote, updateLivePlanningStatus, updateDayProgress, queueConsolidatedBackup, runLocalAlerts,
+    renderAnnualAvailability, updateRewardStates, renderAdherence, renderBottlenecks,
+  updateLivePlanningStatus, updateDayProgress, queueConsolidatedBackup, runLocalAlerts,
     saveTemplate, loadTemplate, duplicateTemplate, renameTemplate, deleteTemplate, exportTemplates, importTemplates,
     updateTemplateBadge, archiveWeek, addMonthlyGoal, addTimeOff, addRecurringTimeOff, importNationalHolidays,
     addHalfDay, blockDailyTime, addDailyAgendaItem, exportAllDataCsv, clearPlanner, applyQuickFill,
     openPrintPreview, exportRoutineIcs, toggleTheme, enterFocusMode, clearMarks, startFocusTimer,
     resetFocusTimer, exitFocusMode, exportMarkdown, exportBackup, importBackup, copyBackup,
-    restoreBackupText, closePrintPreview, printFromPreview, exportPlannerSvg, addBottleneck,
-    addOdanote, toggleAudioNote, playAudioNote, deleteAudioNote,
+    restoreBackupText, closePrintPreview, printFromPreview,     exportPlannerSvg, addBottleneck,
   } = actions;
   const {
     secondaryTools, saveTemplateButton, loadTemplateButton, duplicateTemplateButton, renameTemplateButton,
@@ -25,8 +24,7 @@ export function bootstrapPlanner({ actions, elements, storage, dayKeys, getSelec
     toggleBadDayButton, toggleEditLockButton, toggleEinkButton, toggleLocalAlertsButton,
     exportMarkdownButton, exportBackupButton, importBackupButton, backupFileInput, copyBackupButton,
     restoreBackupTextButton, printPreviewCloseButton, printPreviewConfirmButton, printMarkMode,
-    printPreview, exportPlannerSvgButton, addOdanoteButton, recordAudioNoteButton, playAudioNoteButton,
-    deleteAudioNoteButton, focusOverlay,
+    printPreview, exportPlannerSvgButton, focusOverlay,
   } = elements;
 
   buildSchedule();
@@ -50,12 +48,22 @@ export function bootstrapPlanner({ actions, elements, storage, dayKeys, getSelec
   applyLocalAlerts(storage.getItem(storage.keys.localAlerts) === "true");
   [renderTemplateOptions, renderHistory, renderMonthlyGoals, renderDailyAgenda, renderWeeklyCapacity, renderWorkHours,
     renderTimeOff, renderHalfDays, renderMonthlyReport, renderAnnualAvailability, updateRewardStates, renderAdherence,
-    renderBottlenecks, renderOdanote, loadAudioNote, updateLivePlanningStatus, updateDayProgress, queueConsolidatedBackup,
+    renderBottlenecks, updateLivePlanningStatus, updateDayProgress, queueConsolidatedBackup,
     runLocalAlerts].forEach((task) => task());
   window.setInterval(updateLivePlanningStatus, 60 * 1000);
   window.setInterval(updateDayProgress, 60 * 1000);
   window.setInterval(runLocalAlerts, 60 * 1000);
-  if (window.location.hash === "#acompanhamento" || new URLSearchParams(window.location.search).has("acompanhamento")) secondaryTools.open = true;
+  const tabButtons = [...document.querySelectorAll(".tab-button")];
+  const tabPanels = { agenda: document.querySelector("#tab-agenda"), acompanhamento: document.querySelector("#acompanhamento") };
+  const setTab = (key) => {
+    tabButtons.forEach((button) => { const active = button.dataset.tab === key; button.classList.toggle("is-active", active); button.setAttribute("aria-selected", String(active)); });
+    Object.entries(tabPanels).forEach(([panelKey, panel]) => { if (panel) panel.hidden = panelKey !== key; });
+    if (key === "acompanhamento" && tabPanels.acompanhamento) tabPanels.acompanhamento.open = true;
+    window.dispatchEvent(new Event("resize"));
+  };
+  tabButtons.forEach((button) => button.addEventListener("click", () => setTab(button.dataset.tab)));
+  const initialTab = new URLSearchParams(window.location.search).get("aba") || (window.location.hash === "#acompanhamento" ? "acompanhamento" : "agenda");
+  setTab(initialTab);
 
   const mobileToolsDialog = document.querySelector("#mobile-tools-dialog");
   const mobileMenuOpenButton = document.querySelector("#mobile-menu-open");
@@ -131,10 +139,6 @@ export function bootstrapPlanner({ actions, elements, storage, dayKeys, getSelec
   window.addEventListener("afterprint", () => { if (!printPreview.hidden) closePrintPreview(); });
   exportPlannerSvgButton.addEventListener("click", exportPlannerSvg);
   document.querySelectorAll("[data-bottleneck]").forEach((button) => button.addEventListener("click", () => addBottleneck(button.dataset.bottleneck)));
-  addOdanoteButton.addEventListener("click", addOdanote);
-  recordAudioNoteButton.addEventListener("click", toggleAudioNote);
-  playAudioNoteButton.addEventListener("click", playAudioNote);
-  deleteAudioNoteButton.addEventListener("click", deleteAudioNote);
   document.addEventListener("keydown", (event) => {
     const target = event.target;
     const typing = target?.matches?.("input, select, textarea") || target?.isContentEditable;

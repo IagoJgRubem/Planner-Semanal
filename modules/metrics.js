@@ -21,29 +21,22 @@ export function createMetricsController({ elements, days, categoryLabels, schedu
       item.append(label, bar, value);
       adherenceChart.append(item);
     });
-    const studyMinutes = [...scheduleRoot.querySelectorAll('.schedule-slot.slot--study:not(.is-continuation) [data-slot-check]:checked')].reduce((sum, mark) => sum + getBlockDuration(mark.dataset.slotCheck), 0);
     const ritualMarks = [...scheduleRoot.querySelectorAll('[data-slot-check$="-22:00"]')];
     const ritualCompleted = ritualMarks.filter((mark) => mark.checked).length;
-    sundaySummary.textContent = `Fechamento de domingo · ${formatDuration(studyMinutes)} de estudo marcado · ritual 5S em ${ritualCompleted}/${ritualMarks.length || 5} noite(s).`;
+    sundaySummary.textContent = `Fechamento de domingo · ritual 5S em ${ritualCompleted}/${ritualMarks.length || 5} noite(s) concluído(s).`;
     const cursor = getCalendarCursor();
     const monthPrefix = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`;
-    const activities = getMonthlyActivity().filter((item) => item.date.startsWith(monthPrefix));
-    const studyActivities = activities.filter((item) => item.kind === "study");
-    const studyDays = new Set(studyActivities.map((item) => item.date)).size;
-    const studyMinutesMonth = studyActivities.reduce((sum, item) => sum + item.minutes, 0);
     const ritualDays = new Set(getRitualDates().filter((date) => date.startsWith(monthPrefix))).size;
     const now = new Date();
     const isCurrentMonth = now.getFullYear() === cursor.getFullYear() && now.getMonth() === cursor.getMonth();
     const daysElapsed = isCurrentMonth ? now.getDate() : new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
-    const businessDaysElapsed = Array.from({ length: daysElapsed }, (_, index) => new Date(cursor.getFullYear(), cursor.getMonth(), index + 1)).filter((date) => date.getDay() !== 0 && date.getDay() !== 6).length;
-    monthlyConsistency.innerHTML = `<span><b>${formatDuration(studyMinutesMonth)}</b> estudo no mês</span><span><b>${studyActivities.length}</b> sessão(ões)</span><span><b>${businessDaysElapsed ? Math.round((studyDays / businessDaysElapsed) * 100) : 0}%</b> dias úteis com estudo</span><span><b>${daysElapsed ? Math.round((ritualDays / daysElapsed) * 100) : 0}%</b> ritual 5S</span>`;
+    monthlyConsistency.innerHTML = `<span><b>${daysElapsed}</b> dias no mês</span><span><b>${ritualDays}</b> dia(s) com ritual 5S</span><span><b>${daysElapsed ? Math.round((ritualDays / daysElapsed) * 100) : 0}%</b> aderência ao ritual 5S</span>`;
   }
 
   function renderWeeklyLoad() {
-    const counts = { trabalho: 0, estudos: 0, pessoal: 0, saude: 0 };
+    const counts = { trabalho: 0, pessoal: 0, saude: 0 };
     days.forEach((day) => getScheduleEntries(day.key).forEach((entry) => {
       if (entry.base.includes("slot--work")) counts.trabalho += entry.duration;
-      if (entry.base.includes("slot--study")) counts.estudos += entry.duration;
       if (entry.base.includes("slot--personal")) counts.pessoal += entry.duration;
     }));
     const max = Math.max(...Object.values(counts), 1);

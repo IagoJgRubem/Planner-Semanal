@@ -1,1269 +1,1697 @@
-import { createAudioNoteStore } from "./audio-store.js";
 import { createBackupController } from "./backup-controller.js";
-import * as calendar from "./calendar-utils.js";
-import { createCapacityReports } from "./capacity-reports.js";
-import { createDailyAgendaController } from "./daily-agenda.js";
-import { createGoalsCalendarController } from "./goals-calendar.js";
-import { buildPlannerSvg, buildRoutineIcs, downloadFile } from "./file-export.js";
-import { closePrintPreview as closePreview, openPrintPreview as openPreview } from "./print-preview.js";
-import { applyQuickFillPreset } from "./quick-fill.js";
-import { createFocusController } from "./focus-timer.js";
-import { activatePlannerEditing } from "./editable-content.js";
-import { createPlannerRepositories } from "./planner-repositories.js";
+import { getPlannerElements } from "./app-shell.js";
 import { createPlannerUiState } from "./planner-ui-state.js";
-import { createGoalDateTools } from "./goal-date-tools.js";
-import { createTemplatesHistoryController } from "./templates-history.js";
-import { createScheduleGridController } from "./schedule-grid.js";
-import { createPlannerNavigation } from "./planner-navigation.js";
-import { createGoalRemindersController } from "./goal-reminders.js";
-import { createSlotStateController } from "./slot-state.js";
-import { createPlannerPreferences } from "./planner-preferences.js";
-import { createFormDialog } from "./form-dialog.js";
-import { getPlannerElements, startPlanner } from "./app-shell.js";
-import { storageKeys, categoryLabels, quickFillPresets } from "./app-config.js";
-import { days, times, defaults } from "./default-schedule.js";
-import { createMetricsController } from "./metrics.js";
-import { createJSONStore } from "./storage.js";
+import {
+  weekValueForDate,
+  mondayFromWeekValue,
+  localDateKey,
+  dateFromKey,
+  timeToMinutes,
+  formatDuration,
+} from "./calendar-utils.js";
 
-const { schedule: storageKey, checklist: checklistStorageKey, priorities: priorityStorageKey, templates: templatesStorageKey, history: historyStorageKey, monthlyGoals: monthlyGoalsStorageKey, dailyAgenda: dailyAgendaStorageKey, dailyBlocks: dailyBlocksStorageKey, workHours: workHoursStorageKey, timeOff: timeOffStorageKey, halfDays: halfDayStorageKey, slotMarks: slotMarksStorageKey, ritualStreak: ritualStreakStorageKey, theme: themeStorageKey, durations: durationsStorageKey, bottlenecks: bottleneckStorageKey, odanote: odanoteStorageKey, badDay: badDayStorageKey, editLock: editLockStorageKey, eink: einkStorageKey, holidayImport: holidayImportStorageKey, localAlerts: localAlertsStorageKey, activity: activityStorageKey, weekPicker: weekPickerStorageKey, consolidatedBackup: consolidatedBackupStorageKey } = storageKeys;
-const plannerStorage = createJSONStore();
-const audioStore = createAudioNoteStore();
-const plannerElements = getPlannerElements(document);
-const plannerRoot = document.querySelector(".planner-page");
-const {
-  plannerDialogElement, plannerDialogTitle, plannerDialogDescription, plannerDialogForm, plannerDialogFields, plannerDialogSubmit, plannerDialogCancel,
-  grid, saveStatus, prioritySummary, weekPicker, weekRangeDisplay, templateSelect, templateCategory, categoryFilter, templateCategoryBadge, loadTemplateButton, saveTemplateButton, duplicateTemplateButton, renameTemplateButton, deleteTemplateButton, exportTemplatesButton, importTemplatesButton, templateFileInput, archiveWeekButton,
-  historyList, streakIndicator, goalCategory, goalDeadline, goalReminderTime, goalRecurring, addGoalButton, monthlyGoalsList, categoryChart, weeklyLoad, exportDataCsvButton, calendarLabel, monthlyCalendar, calendarPreviousButton, calendarNextButton, dailyAgendaDate, dailyAgendaSummary, dailyAgendaList, blockDailyTimeButton, addDailyItemButton,
-  capacityContent, workHoursContent, timeOffDate, timeOffLabel, addTimeOffButton, recurringTimeOffDay, addRecurringTimeOffButton, importNationalHolidaysButton, timeOffList, halfDayDate, halfDayLabel, addHalfDayButton, halfDayList, monthlyReportContent, annualPreviousButton, annualNextButton, annualLabel, annualSummary, annualMonths, clearPlannerButton, secondaryTools, mobileDayTabs, livePlanningStatus,
-  quickPrintButton, quickFillSelection, mobileQuickFillSelection, quickFillButtons, exportIcsButton, toggleThemeButton, enterFocusButton, clearMarksButton, focusOverlay, focusActiveBlock, focusClock, focusStartButton, focusResetButton, focusExitButton, dayProgressFill, dayProgressLabel, toggleBadDayButton, toggleEditLockButton, toggleEinkButton, toggleLocalAlertsButton, exportMarkdownButton, exportBackupButton, importBackupButton, exportPlannerSvgButton, backupFileInput, backupPayloadField, copyBackupButton, restoreBackupTextButton,
-  printPreview, printPreviewSheet, printPreviewCloseButton, printPreviewConfirmButton, printMarkMode, adherenceChart, sundaySummary, monthlyConsistency, bottleneckList, odanoteSubject, odanoteText, addOdanoteButton, odanoteList, audioNoteStatus, recordAudioNoteButton, playAudioNoteButton, deleteAudioNoteButton,
-} = plannerElements;
-const plannerDialog = createFormDialog({
-  element: plannerDialogElement, title: plannerDialogTitle, description: plannerDialogDescription, form: plannerDialogForm, fields: plannerDialogFields, submitButton: plannerDialogSubmit, cancelButton: plannerDialogCancel,
-});
-let calendarCursor = new Date();
-calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(), 1);
-let selectedCalendarDate = "";
-let annualCursor = calendarCursor.getFullYear();
-let selectedMobileDay = days[(new Date().getDay() + 6) % 7].key;
-let mediaRecorder = null;
-let audioChunks = [];
-let audioNoteUrl = "";
-let audioRecordingTimeoutId = null;
-let feedbackAudioContext = null;
-let selectedQuickSlot = null;
-let scheduleGridController = null;
+const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
-function buildSchedule() {
-  return scheduleGridController.build();
-}
+// Identificador interno estável: mantido para backups antigos continuarem restauráveis.
+const APP_NAME = "planner-operacional-semanal";
+const APP_VERSION = 3;
+const BACKUP_STORAGE_KEYS = ["planner"];
 
-function getScheduleEntries(dayKey) {
-  return scheduleGridController.getScheduleEntries(dayKey);
-}
+const KEY = {
+  planner: "planner",
+  templates: "planner.templates",
+  history: "planner.history",
+  monthlyGoals: "planner.monthly-goals",
+  dailyAgenda: "planner.daily-agenda",
+  dailyBlocks: "planner.daily-blocks",
+  timeOff: "planner.time-off",
+  durations: "planner.durations",
+  week: "planner.week",
+  selectedDate: "planner.selected-date",
+  workHours: "planner.work-hours",
+  activeTab: "planner.active-tab",
+  profile: "planner.profile",
+  prefs: "planner.prefs",
+  rollover: "planner.rollover",
+  backupConsolidated: "planner.backup-consolidated",
+};
 
-function slotContentForTime(dayKey, time) {
-  return scheduleGridController.slotContentForTime(dayKey, time);
-}
+const DAY_KEYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+const DAY_LABELS = {
+  monday: "Segunda",
+  tuesday: "Terça",
+  wednesday: "Quarta",
+  thursday: "Quinta",
+  friday: "Sexta",
+  saturday: "Sábado",
+  sunday: "Domingo",
+};
+const PERIODS = [
+  { key: "manha", label: "Manhã" },
+  { key: "tarde", label: "Tarde" },
+  { key: "noite", label: "Noite" },
+];
+const WEEKDAY_LETTERS = ["D", "S", "T", "Q", "Q", "S", "S"];
 
-function refreshContinuousBlocks() {
-  return scheduleGridController.refreshContinuousBlocks();
-}
+const CATEGORY_LABELS = { trabalho: "Trabalho", saude: "Saúde", pessoal: "Pessoal" };
+const CATEGORY_RULES = [
+  { key: "trabalho", pattern: /(trabalh|reuni|projeto|cliente|entrega|follow-up|execu)/i },
+  { key: "saude", pattern: /(treino|academia|caminhad|corrid|sa[uú]de|m[eé]dic|dentist|yoga|alonga)/i },
+];
 
-function allChecklistItems() {
-  return [...plannerRoot.querySelectorAll("[data-checklist]")];
-}
+// Feriados fixos nacionais e municipais por fuso configurado no perfil.
+const NATIONAL_HOLIDAYS = [
+  { month: 1, day: 1, label: "Confraternização Universal" },
+  { month: 4, day: 21, label: "Tiradentes" },
+  { month: 5, day: 1, label: "Dia do Trabalho" },
+  { month: 9, day: 7, label: "Independência do Brasil" },
+  { month: 10, day: 12, label: "Nossa Senhora Aparecida" },
+  { month: 11, day: 2, label: "Finados" },
+  { month: 11, day: 15, label: "Proclamação da República" },
+  { month: 12, day: 25, label: "Natal" },
+];
+const REGIONAL_HOLIDAYS = {
+  "America/Manaus": [{ month: 6, day: 24, label: "Aniversário de Manaus" }],
+  "America/Sao_Paulo": [{ month: 1, day: 25, label: "Aniversário de São Paulo" }],
+  "America/Rio_Branco": [{ month: 12, day: 28, label: "Aniversário de Rio Branco" }],
+};
 
-function feedbackCheck() {
-  if (navigator.vibrate) navigator.vibrate(15);
-  playFeedbackTone({ frequency: 170, duration: 0.08, volume: 0.025, type: "square" });
-}
-
-function getFeedbackAudioContext() {
-  if (feedbackAudioContext?.state !== "closed") return feedbackAudioContext;
-  const AudioContext = window.AudioContext || window.webkitAudioContext;
-  feedbackAudioContext = new AudioContext();
-  return feedbackAudioContext;
-}
-
-function playFeedbackTone({ frequency, duration, volume, type = "sine" }) {
+function readJSON(key, fallback) {
   try {
-    const context = getFeedbackAudioContext();
-    const schedule = () => {
-      const oscillator = context.createOscillator();
-      const gain = context.createGain();
-      oscillator.type = type;
-      oscillator.frequency.value = frequency;
-      gain.gain.setValueAtTime(volume, context.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + duration);
-      oscillator.connect(gain).connect(context.destination);
-      oscillator.start();
-      oscillator.stop(context.currentTime + duration);
-    };
-    if (context.state === "suspended") context.resume().then(schedule).catch(() => {});
-    else schedule();
-  } catch { /* Feedback visual continua disponível sem áudio. */ }
-}
-
-const { allEditables, allSlotMarks, allDurationFields, getBlockDurations, getBlockDuration, saveBlockDurations, getSlotMarkValues, applySlotMarkValues, saveSlotMarks } = createSlotStateController({
-  root: plannerRoot,
-  durationsStorageKey, slotMarksStorageKey,
-  queueBackup: () => queueConsolidatedBackup(),
-  onDurationsSaved: () => { refreshContinuousBlocks(); updateGoalReminders(); renderWeeklyLoad(); renderWeeklyCapacity(); renderAdherence(); showStatus("Duração do bloco atualizada."); },
-  onSlotMarksSaved: () => { updateRitualStreak(); updateRewardStates(); renderAdherence(); },
-});
-
-const metricsController = createMetricsController({ elements: { adherenceChart, sundaySummary, monthlyConsistency, weeklyLoad }, days, categoryLabels, scheduleRoot: grid, getScheduleEntries, getBlockDuration, getMonthlyActivity, getRitualDates, getCalendarCursor: () => calendarCursor, formatDuration });
-const renderAdherence = metricsController.renderAdherence;
-const renderWeeklyLoad = metricsController.renderWeeklyLoad;
-
-function getMonthlyActivity() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(activityStorageKey) || "[]");
-    return Array.isArray(saved) ? saved : [];
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
   } catch {
-    localStorage.removeItem(activityStorageKey);
-    return [];
+    localStorage.removeItem(key);
+    return fallback;
   }
 }
-
-function recordMonthlyActivity(mark) {
-  const slot = mark.closest(".schedule-slot");
-  if (!slot || !mark.checked || !slot.dataset.baseClass.includes("slot--study")) return;
-  const date = localDateKey(new Date());
-  const id = `${date}-${mark.dataset.slotCheck}`;
-  const items = getMonthlyActivity();
-  if (items.some((item) => item.id === id)) return;
-  items.push({ id, date, kind: "study", minutes: getBlockDuration(mark.dataset.slotCheck) });
-  localStorage.setItem(activityStorageKey, JSON.stringify(items));
-  queueConsolidatedBackup();
+function writeJSON(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+  return value;
 }
-
-function getBottlenecks() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(bottleneckStorageKey) || "[]");
-    return Array.isArray(saved) ? saved : [];
-  } catch {
-    localStorage.removeItem(bottleneckStorageKey);
-    return [];
-  }
+function readText(key, fallback = "") {
+  return localStorage.getItem(key) ?? fallback;
 }
-
-function saveBottlenecks(items) {
-  localStorage.setItem(bottleneckStorageKey, JSON.stringify(items));
-  queueConsolidatedBackup();
+function writeText(key, value) {
+  localStorage.setItem(key, value);
+  return value;
 }
-
-function renderBottlenecks() {
-  bottleneckList.replaceChildren();
-  const items = getBottlenecks();
-  if (!items.length) {
-    const empty = document.createElement("p");
-    empty.className = "bottleneck-empty";
-    empty.textContent = "Registre um desvio para orientar a próxima melhoria Kaizen.";
-    bottleneckList.append(empty);
-    return;
-  }
-  items.slice().reverse().forEach((item) => {
-    const row = document.createElement("div");
-    row.className = "bottleneck-item";
-    const label = document.createElement("span");
-    label.textContent = item.label;
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.textContent = "Excluir";
-    remove.addEventListener("click", () => {
-      saveBottlenecks(getBottlenecks().filter((entry) => entry.id !== item.id));
-      renderBottlenecks();
-    });
-    row.append(label, remove);
-    bottleneckList.append(row);
-  });
+function safeParse(raw) {
+  try { return JSON.parse(raw); } catch { return {}; }
 }
-
-function addBottleneck(label) {
-  const items = getBottlenecks();
-  items.push({ id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, label, date: new Date().toISOString() });
-  saveBottlenecks(items);
-  renderBottlenecks();
-  showStatus("Gargalo registrado para a revisão semanal.");
+function debounce(fn, wait) {
+  let timer;
+  return (...args) => {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(() => fn(...args), wait);
+  };
 }
-
-function getOdanote() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(odanoteStorageKey) || "[]");
-    return Array.isArray(saved) ? saved : [];
-  } catch {
-    localStorage.removeItem(odanoteStorageKey);
-    return [];
-  }
+function randomId() {
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
-
-function saveOdanote(items) {
-  localStorage.setItem(odanoteStorageKey, JSON.stringify(items));
-  queueConsolidatedBackup();
+function rangesOverlap(startTime, startDuration, endTime, endDuration) {
+  const firstStart = timeToMinutes(startTime);
+  const firstEnd = firstStart + Math.max(0, Number(startDuration) || 0);
+  const secondStart = timeToMinutes(endTime);
+  const secondEnd = secondStart + Math.max(0, Number(endDuration) || 0);
+  return firstStart < secondEnd && secondStart < firstEnd;
 }
-
-function renderOdanote() {
-  odanoteList.replaceChildren();
-  const items = getOdanote();
-  if (!items.length) {
-    const empty = document.createElement("p");
-    empty.className = "odanote-empty";
-    empty.textContent = "Nenhum erro registrado. Use esta lista para a revisão de sábado.";
-    odanoteList.append(empty);
-    return;
-  }
-  items.slice().reverse().forEach((item) => {
-    const row = document.createElement("div");
-    row.className = "odanote-item";
-    const subject = document.createElement("b");
-    subject.textContent = item.subject;
-    const text = document.createElement("span");
-    text.textContent = item.text;
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.textContent = "Excluir";
-    remove.addEventListener("click", () => {
-      saveOdanote(getOdanote().filter((entry) => entry.id !== item.id));
-      renderOdanote();
-    });
-    row.append(subject, text, remove);
-    odanoteList.append(row);
-  });
-}
-
-function addOdanote() {
-  const subject = odanoteSubject.value.trim();
-  const text = odanoteText.value.trim();
-  if (!subject || !text) {
-    showStatus("Informe a matéria e o erro ou dúvida a revisar.");
-    return;
-  }
-  saveOdanote([...getOdanote(), { id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, subject, text, createdAt: new Date().toISOString() }]);
-  odanoteSubject.value = "";
-  odanoteText.value = "";
-  renderOdanote();
-  showStatus("Erro adicionado ao Odanote.");
-}
-
-function audioDatabase() {
-  return audioStore;
-}
-
-async function saveAudioNote(blob) {
-  await audioDatabase().save("morning-summary", blob);
-  queueConsolidatedBackup();
-}
-
-async function loadAudioNote() {
-  try {
-    const blob = await audioDatabase().load("morning-summary");
-    if (!(blob instanceof Blob)) return;
-    audioNoteUrl = URL.createObjectURL(blob);
-    playAudioNoteButton.disabled = false;
-    deleteAudioNoteButton.disabled = false;
-    recordAudioNoteButton.textContent = "Gravar novo resumo";
-    audioNoteStatus.textContent = "Resumo salvo localmente e disponível para a próxima manhã.";
-  } catch {
-    audioNoteStatus.textContent = "O navegador não conseguiu acessar o áudio salvo.";
-  }
-}
-
-async function removeAudioNote() {
-  await audioDatabase().remove("morning-summary");
-  queueConsolidatedBackup();
-}
-
-async function toggleAudioNote() {
-  if (mediaRecorder?.state === "recording") {
-    mediaRecorder.stop();
-    return;
-  }
-  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
-    audioNoteStatus.textContent = "Gravação de áudio não é compatível com este navegador.";
-    return;
-  }
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    audioChunks = [];
-    mediaRecorder = new MediaRecorder(stream);
-    mediaRecorder.addEventListener("dataavailable", (event) => { if (event.data.size) audioChunks.push(event.data); });
-    mediaRecorder.addEventListener("stop", async () => {
-      window.clearTimeout(audioRecordingTimeoutId);
-      if (audioNoteUrl) URL.revokeObjectURL(audioNoteUrl);
-      const blob = new Blob(audioChunks, { type: "audio/webm" });
-      audioNoteUrl = URL.createObjectURL(blob);
-      stream.getTracks().forEach((track) => track.stop());
-      recordAudioNoteButton.textContent = "Gravar novo resumo";
-      playAudioNoteButton.disabled = false;
-      deleteAudioNoteButton.disabled = false;
-      await saveAudioNote(blob);
-      audioNoteStatus.textContent = "Resumo gravado e salvo localmente para a próxima manhã.";
-    });
-    mediaRecorder.start();
-    recordAudioNoteButton.textContent = "Parar gravação";
-    audioNoteStatus.textContent = "Gravando resumo… limite de 2 minutos.";
-    audioRecordingTimeoutId = window.setTimeout(() => {
-      if (mediaRecorder?.state === "recording") mediaRecorder.stop();
-    }, 120000);
-  } catch {
-    audioNoteStatus.textContent = "Não foi possível acessar o microfone.";
-  }
-}
-
-function playAudioNote() {
-  if (!audioNoteUrl) return;
-  new Audio(audioNoteUrl).play().catch(() => { audioNoteStatus.textContent = "O navegador bloqueou a reprodução automática. Tente novamente."; });
-}
-
-async function deleteAudioNote() {
-  if (audioNoteUrl) URL.revokeObjectURL(audioNoteUrl);
-  audioNoteUrl = "";
-  await removeAudioNote();
-  playAudioNoteButton.disabled = true;
-  deleteAudioNoteButton.disabled = true;
-  recordAudioNoteButton.textContent = "Gravar resumo";
-  audioNoteStatus.textContent = "Resumo removido desta sessão.";
-}
-
-function getRitualDates() {
-  try {
-    const dates = JSON.parse(localStorage.getItem(ritualStreakStorageKey) || "[]");
-    return Array.isArray(dates) ? dates : [];
-  } catch {
-    localStorage.removeItem(ritualStreakStorageKey);
-    return [];
-  }
-}
-
-function updateRitualStreak() {
-  const today = new Date();
-  const todayDayKey = days[(today.getDay() + 6) % 7].key;
-  const ritual = document.querySelector(`[data-slot-check="${todayDayKey}-22:00"]`);
-  const todayKey = localDateKey(today);
-  const dates = new Set(getRitualDates());
-  if (ritual?.checked) dates.add(todayKey);
-  else dates.delete(todayKey);
-  const savedDates = [...dates].sort();
-  localStorage.setItem(ritualStreakStorageKey, JSON.stringify(savedDates));
-  let streak = 0;
-  const cursor = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  while (dates.has(localDateKey(cursor))) {
-    streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-  document.documentElement.dataset.ritualStreak = String(streak);
-  return streak;
-}
-
-function applyTheme(theme) {
-  const resolvedTheme = theme === "system" ? "" : theme;
-  if (resolvedTheme) document.documentElement.dataset.theme = resolvedTheme;
-  else document.documentElement.removeAttribute("data-theme");
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", resolvedTheme === "dark" ? "#0b0f19" : "#fffefa");
-  toggleThemeButton.setAttribute("aria-pressed", String(resolvedTheme === "dark"));
-  toggleThemeButton.textContent = resolvedTheme === "dark" ? "Claro" : "Tema";
-}
-
-function toggleTheme() {
-  const nextTheme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-  localStorage.setItem(themeStorageKey, nextTheme);
-  queueConsolidatedBackup();
-  applyTheme(nextTheme);
-}
-
-const { allPriorityItems, getFieldValues, getChecklistValues, getPriorityValues, applyFieldValues, applyChecklistValues, applyPriorityValues, updatePrioritySummary, showStatus } = createPlannerUiState({ root: plannerRoot, prioritySummary, saveStatus, allEditables, allChecklistItems });
 
 function loadPlanner() {
-  applyFieldValues(plannerStorage.read(storageKey, {}));
-  applyChecklistValues(plannerStorage.read(checklistStorageKey, {}));
-  applyPriorityValues(plannerStorage.read(priorityStorageKey, {}));
+  const defaults = { fields: {}, checks: {}, checklist: {}, priorities: {} };
+  const parsed = safeParse(readText(KEY.planner, ""));
+  if (!parsed || typeof parsed !== "object") return defaults;
+  return {
+    fields: parsed.fields && typeof parsed.fields === "object" ? parsed.fields : {},
+    checks: parsed.checks && typeof parsed.checks === "object" ? parsed.checks : {},
+    checklist: parsed.checklist && typeof parsed.checklist === "object" ? parsed.checklist : {},
+    priorities: parsed.priorities && typeof parsed.priorities === "object" ? parsed.priorities : {},
+  };
 }
 
-function savePlanner() {
-  refreshContinuousBlocks();
-  plannerStorage.write(storageKey, getFieldValues());
-  plannerStorage.write(checklistStorageKey, getChecklistValues());
-  plannerStorage.write(priorityStorageKey, getPriorityValues());
-  queueConsolidatedBackup();
-  updateGoalReminders();
-  renderWeeklyLoad();
-  renderWeeklyCapacity();
-  updatePrioritySummary();
-  showStatus("Alterações salvas neste navegador.");
-}
+let plannerDoc = loadPlanner();
+let selectedDate = readText(KEY.selectedDate, "") || null;
+let currentWeek = readText(KEY.week, "") || weekValueForDate(new Date());
+const todaySeed = new Date();
+let calendarCursor = { year: todaySeed.getFullYear(), month: todaySeed.getMonth() };
 
-const { normalizeCategory, getTemplates, saveTemplates, getHistory, saveHistory, getMonthlyGoals, saveMonthlyGoals, getDailyAgenda, saveDailyAgenda, getDailyBlocks, saveDailyBlocks, getTimeOff, saveTimeOff, timeOffForDate } = createPlannerRepositories({
-  storage: plannerStorage,
-  keys: { templates: templatesStorageKey, history: historyStorageKey, monthlyGoals: monthlyGoalsStorageKey, dailyAgenda: dailyAgendaStorageKey, dailyBlocks: dailyBlocksStorageKey, timeOff: timeOffStorageKey },
-  queueBackup: () => queueConsolidatedBackup(), categoryLabels, dayKeyFromDate,
+const els = getPlannerElements();
+
+const uiState = createPlannerUiState({
+  root: document,
+  prioritySummary: els.prioritySummary,
+  saveStatus: els.saveStatus,
+  allEditables: () => $$(".slot-text"),
+  allChecklistItems: () => $$("[data-checklist]"),
 });
 
-function renderTimeOff() {
-  const timeOff = getTimeOff();
-  timeOffList.replaceChildren();
-  const entries = [
-    ...timeOff.dates.map((item) => ({ ...item, type: "date" })),
-    ...timeOff.recurringDays.map((dayKey) => ({ dayKey, type: "recurring", label: `Folga recorrente · ${days.find((day) => day.key === dayKey)?.label || dayKey}` })),
-  ];
-  if (!entries.length) {
-    const empty = document.createElement("p");
-    empty.className = "time-off-empty";
-    empty.textContent = "Nenhum feriado ou dia de folga cadastrado.";
-    timeOffList.append(empty);
+const dialogElement = els.dialogElement;
+let dialogResolve = null;
+
+function buildField(definition) {
+  const wrap = document.createElement("label");
+  const caption = document.createElement("span");
+  caption.textContent = definition.label;
+  wrap.append(caption);
+  let input;
+  if (definition.type === "select") {
+    input = document.createElement("select");
+    (definition.options || []).forEach((option) => {
+      const opt = document.createElement("option");
+      opt.value = option.value;
+      opt.textContent = option.label;
+      input.append(opt);
+    });
+  } else if (definition.type === "textarea") {
+    input = document.createElement("textarea");
+    input.rows = definition.rows || 3;
+  } else {
+    input = document.createElement("input");
+    input.type = definition.type || "text";
+    if (definition.min != null) input.min = definition.min;
+    if (definition.max != null) input.max = definition.max;
+    if (definition.step != null) input.step = definition.step;
+    if (definition.placeholder != null) input.placeholder = String(definition.placeholder);
+    if (definition.required) input.required = true;
+    if (definition.value != null) input.value = definition.value;
+  }
+  input.name = definition.name;
+  wrap.append(input);
+  return wrap;
+}
+
+function closeModal(value) {
+  if (dialogElement.open) dialogElement.close();
+  const resolve = dialogResolve;
+  dialogResolve = null;
+  resolve?.(value);
+}
+
+function openModal({ heading, detail = "", submitLabel = "Salvar", fields = [] }) {
+  if (dialogResolve) closeModal(null);
+  els.dialogTitle.textContent = heading;
+  els.dialogDescription.textContent = detail;
+  els.dialogDescription.hidden = !detail;
+  els.dialogFields.replaceChildren(...fields.map(buildField));
+  els.dialogSubmit.textContent = submitLabel;
+  els.dialogCancel.textContent = "Cancelar";
+  dialogElement.showModal();
+  window.setTimeout(() => els.dialogFields.querySelector("input:not([type=checkbox])")?.focus(), 0);
+  return new Promise((resolve) => { dialogResolve = resolve; });
+}
+
+dialogElement.addEventListener("close", () => {
+  const resolve = dialogResolve;
+  dialogResolve = null;
+  resolve?.(null);
+});
+els.dialogForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (event.submitter === els.dialogCancel) {
+    closeModal(null);
     return;
   }
-  entries.forEach((entry) => {
-    const row = document.createElement("div");
-    row.className = "time-off-item";
-    const text = document.createElement("span");
-    text.textContent = entry.type === "date" ? `${formatDate(entry.date)} · ${entry.label || "Folga"}` : entry.label;
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.textContent = "Excluir";
-    remove.addEventListener("click", () => {
-      const updated = getTimeOff();
-      if (entry.type === "date") updated.dates = updated.dates.filter((item) => item.id !== entry.id);
-      else updated.recurringDays = updated.recurringDays.filter((dayKey) => dayKey !== entry.dayKey);
-      saveTimeOff(updated);
-      renderTimeOff();
-      refreshAvailabilityViews();
-      showStatus("Indisponibilidade removida.");
-    });
-    row.append(text, remove);
-    timeOffList.append(row);
+  const values = {};
+  els.dialogFields.querySelectorAll("input, select, textarea").forEach((field) => {
+    values[field.name] = field.type === "checkbox" ? field.checked : field.value;
+  });
+  closeModal(values);
+});
+
+const modal = {
+  open: openModal,
+  confirm: async ({ heading, detail = "", confirmLabel = "Confirmar" } = {}) =>
+    Boolean(await openModal({ heading, detail, submitLabel: confirmLabel, fields: [] })),
+};
+
+function persistPlanner() {
+  plannerDoc.fields = uiState.getFieldValues();
+  plannerDoc.checklist = uiState.getChecklistValues();
+  plannerDoc.priorities = uiState.getPriorityValues();
+  plannerDoc.checks = Object.fromEntries($$(".slot-check").map((item) => [item.dataset.slotCheck, item.checked]));
+  writeText(KEY.planner, JSON.stringify(plannerDoc));
+  uiState.showStatus("Alterações salvas ✓");
+  refreshDayProgress();
+  syncEmptySlots();
+  recordWeekSnapshot();
+  refreshMetrics();
+  backupController.queueSync(KEY.backupConsolidated);
+}
+const debouncedPersist = debounce(persistPlanner, 350);
+
+function applyStoredValues() {
+  uiState.applyFieldValues(plannerDoc.fields);
+  uiState.applyChecklistValues(plannerDoc.checklist);
+  uiState.applyPriorityValues(plannerDoc.priorities);
+  $$(".slot-check").forEach((item) => { item.checked = Boolean(plannerDoc.checks[item.dataset.slotCheck]); });
+  applyDurations();
+  syncDoneClasses();
+  syncEmptySlots();
+}
+
+function syncDoneClasses() {
+  $$(".schedule-slot").forEach((slot) => {
+    const check = slot.querySelector(".slot-check");
+    slot.classList.toggle("is-done", Boolean(check?.checked));
   });
 }
 
-function addTimeOff() {
-  if (!timeOffDate.value) {
-    showStatus("Escolha uma data para cadastrar o feriado ou a folga.");
-    return;
-  }
-  const timeOff = getTimeOff();
-  if (timeOff.dates.some((item) => item.date === timeOffDate.value)) {
-    showStatus("Já existe uma indisponibilidade cadastrada nessa data.");
-    return;
-  }
-  timeOff.dates.push({ id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, date: timeOffDate.value, label: timeOffLabel.value.trim() || "Feriado / folga" });
-  saveTimeOff(timeOff);
-  saveHalfDays(getHalfDays().filter((item) => item.date !== timeOffDate.value));
-  timeOffDate.value = "";
-  timeOffLabel.value = "";
-  renderTimeOff();
-  renderHalfDays();
-  refreshAvailabilityViews();
-  showStatus("Feriado ou folga adicionada.");
+function getDurations() { return readJSON(KEY.durations, {}); }
+function applyDurations(values = getDurations()) {
+  $$("[data-duration]").forEach((chip) => {
+    const stored = values[chip.dataset.duration];
+    if (stored != null) chip.textContent = `${stored}m`;
+  });
 }
 
-function addRecurringTimeOff() {
-  const dayKey = recurringTimeOffDay.value;
-  const timeOff = getTimeOff();
-  if (timeOff.recurringDays.includes(dayKey)) {
-    showStatus("Esse dia já está definido como folga recorrente.");
-    return;
-  }
-  timeOff.recurringDays.push(dayKey);
-  saveTimeOff(timeOff);
-  renderTimeOff();
-  refreshAvailabilityViews();
-  showStatus("Folga recorrente adicionada.");
+async function editDuration(chip) {
+  const key = chip.dataset.duration;
+  const current = Number(getDurations()[key]) || Number.parseInt(chip.textContent, 10) || 60;
+  const values = await modal.open({
+    heading: "Duração do bloco",
+    fields: [
+      { name: "duration", label: "Duração (minutos)", type: "number", min: 0, step: 5, value: current },
+    ],
+  });
+  if (!values) return;
+  const minutes = Math.max(0, Math.round(Number(values.duration) || 0));
+  const durations = getDurations();
+  durations[key] = minutes;
+  writeJSON(KEY.durations, durations);
+  chip.textContent = `${minutes}m`;
+  uiState.showStatus(`Duração atualizada para ${minutes} min ✓`);
 }
 
-async function importNationalHolidays() {
-  const year = annualCursor || new Date().getFullYear();
-  importNationalHolidaysButton.disabled = true;
-  importNationalHolidaysButton.textContent = "Importando…";
+/* Reordenação real das prioridades: troca os estados entre as posições 1, 2 e 3. */
+function swapPriorities(firstKey, secondKey) {
+  const values = uiState.getPriorityValues();
+  const temp = values[firstKey];
+  values[firstKey] = values[secondKey];
+  values[secondKey] = temp;
+  uiState.applyPriorityValues(values);
+  persistPlanner();
+}
+
+function getProfile() {
+  const saved = readJSON(KEY.profile, {});
+  return {
+    name: typeof saved.name === "string" ? saved.name : "",
+    email: typeof saved.email === "string" ? saved.email : "",
+    timezone: typeof saved.timezone === "string" ? saved.timezone : "America/Manaus",
+    weekFormat: saved.weekFormat === "sunday" ? "sunday" : "iso",
+    photo: typeof saved.photo === "string" && saved.photo.startsWith("data:image/") ? saved.photo : "",
+  };
+}
+function saveProfile(profile) { writeJSON(KEY.profile, profile); }
+
+function getPrefs() {
+  const saved = readJSON(KEY.prefs, {});
+  return {
+    theme: ["light", "dark", "eink"].includes(saved.theme) ? saved.theme : "light",
+    hideEmpty: saved.hideEmpty !== false,
+  };
+}
+function savePrefs(prefs) { writeJSON(KEY.prefs, prefs); }
+
+function applyTheme(theme) {
+  document.body.classList.toggle("theme-dark", theme === "dark");
+  document.body.classList.toggle("theme-eink", theme === "eink");
+}
+
+function initialsFor(name) {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  const first = parts[0].charAt(0) || "";
+  const last = parts.length > 1 ? parts[parts.length - 1].charAt(0) : "";
+  return `${first}${last}`.toUpperCase();
+}
+
+/* Redimensiona a foto escolhida para um quadrado pequeno antes de salvar,
+   preservando a cota do localStorage. */
+function resizeImageForAvatar(file, size = 160) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const context = canvas.getContext("2d");
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, size, size);
+        const scale = Math.max(size / image.width, size / image.height);
+        const width = image.width * scale;
+        const height = image.height * scale;
+        context.drawImage(image, (size - width) / 2, (size - height) / 2, width, height);
+        resolve(canvas.toDataURL("image/jpeg", 0.85));
+      };
+      image.onerror = () => reject(new Error("Imagem inválida"));
+      image.src = String(reader.result);
+    };
+    reader.onerror = () => reject(new Error("Falha ao ler o arquivo"));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function applyProfilePhoto(file) {
+  if (!file?.type.startsWith("image/")) {
+    uiState.showStatus("Escolha um arquivo de imagem.");
+    return;
+  }
   try {
-    const response = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/BR`);
-    if (!response.ok) throw new Error("Fonte indisponível");
-    const holidays = await response.json();
-    const timeOff = getTimeOff();
-    const knownDates = new Set(timeOff.dates.map((item) => item.date));
-    const imported = holidays.filter((holiday) => holiday.global && !knownDates.has(holiday.date));
-    imported.forEach((holiday) => timeOff.dates.push({
-      id: `national-${year}-${holiday.date}`,
-      date: holiday.date,
-      label: `Feriado nacional · ${holiday.localName}`,
-      source: "national",
-    }));
-    saveTimeOff(timeOff);
-    localStorage.setItem(holidayImportStorageKey, JSON.stringify({ year, importedAt: new Date().toISOString(), count: imported.length }));
-    renderTimeOff();
-    refreshAvailabilityViews();
-    showStatus(imported.length ? `${imported.length} feriado(s) nacional(is) importado(s) para ${year}.` : `Os feriados nacionais de ${year} já estavam cadastrados.`);
+    const photo = await resizeImageForAvatar(file);
+    const profile = getProfile();
+    profile.photo = photo;
+    saveProfile(profile);
+    renderProfile();
+    uiState.showStatus("Foto de perfil atualizada ✓");
   } catch {
-    showStatus("Não foi possível importar os feriados agora. Verifique sua conexão e tente novamente.");
-  } finally {
-    importNationalHolidaysButton.disabled = false;
-    importNationalHolidaysButton.textContent = "Importar feriados nacionais";
+    uiState.showStatus("Não foi possível carregar esta imagem.");
   }
 }
 
-function getHalfDays() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(halfDayStorageKey) || "[]");
-    return Array.isArray(saved) ? saved : [];
-  } catch {
-    localStorage.removeItem(halfDayStorageKey);
-    return [];
+function renderProfile() {
+  const profile = getProfile();
+  els.profileAvatar.textContent = profile.photo ? "" : initialsFor(profile.name);
+  els.profileAvatar.classList.toggle("has-photo", Boolean(profile.photo));
+  els.profileAvatar.style.backgroundImage = profile.photo ? `url("${profile.photo}")` : "";
+  const removeButton = $("#profile-photo-remove");
+  if (removeButton) removeButton.hidden = !profile.photo;
+  const timezoneLabel = $("#profile-timezone option:checked")?.textContent || profile.timezone;
+  const formatLabel = $("#profile-week-format option:checked")?.textContent || "";
+  els.profileSummary.textContent = [
+    profile.name ? `Planejando como ${profile.name}.` : "Defina seu nome para personalizar o avatar.",
+    `${timezoneLabel} · ${formatLabel}`,
+  ].join(" ");
+}
+
+/* Importa feriados nacionais e municipais do fuso do perfil para os dois anos
+   correntes, descontando automaticamente a capacidade diária/semanal. */
+function importHolidays() {
+  const profile = getProfile();
+  const regional = REGIONAL_HOLIDAYS[profile.timezone] || [];
+  const timeOff = getTimeOff();
+  const known = new Set(timeOff.dates.map((item) => item.date));
+  const years = [new Date().getFullYear(), new Date().getFullYear() + 1];
+  const additions = [];
+  years.forEach((year) => {
+    NATIONAL_HOLIDAYS.forEach(({ month, day, label }) => {
+      const dateKey = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      if (!known.has(dateKey)) {
+        additions.push({ date: dateKey, label: `Feriado nacional: ${label}` });
+        known.add(dateKey);
+      }
+    });
+    regional.forEach(({ month, day, label }) => {
+      const dateKey = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      if (!known.has(dateKey)) {
+        additions.push({ date: dateKey, label: `Feriado municipal: ${label}` });
+        known.add(dateKey);
+      }
+    });
+  });
+  if (additions.length) {
+    saveTimeOff({ ...timeOff, dates: [...timeOff.dates, ...additions] });
   }
+  uiState.showStatus(additions.length
+    ? `${additions.length} feriado(s) importados para ${years[0]}–${years[1]} ✓`
+    : "Feriados nacionais e municipais já estão sincronizados.");
+  return additions.length;
 }
 
-function saveHalfDays(halfDays) {
-  localStorage.setItem(halfDayStorageKey, JSON.stringify(halfDays));
-  queueConsolidatedBackup();
+/* Recolhe slots vazios quando "dia reduzido" está ativo; nunca esconde o slot em edição */
+function syncEmptySlots() {
+  const hideEmpty = getPrefs().hideEmpty;
+  $$(".schedule-slot").forEach((slot) => {
+    const text = $(".slot-text", slot);
+    const isEmpty = !text?.textContent.trim();
+    const focused = document.activeElement === text;
+    slot.classList.toggle("is-empty", hideEmpty && isEmpty && !focused);
+  });
+  $$(".day-period").forEach((period) => {
+    const hasEmpty = $$(".schedule-slot", period).some((slot) => slot.classList.contains("is-empty"));
+    period.classList.toggle("is-full", !hasEmpty);
+  });
 }
 
-function halfDayForDate(dateKey, halfDays = getHalfDays()) {
-  return halfDays.find((item) => item.date === dateKey) || null;
+function refreshDayProgress() {
+  $$(".day-card").forEach((card) => {
+    const checks = $$(".slot-check", card);
+    const done = checks.filter((item) => item.checked).length;
+    const percent = checks.length ? Math.round((done / checks.length) * 100) : 0;
+    const bar = $(".day-progress", card);
+    bar.style.setProperty("--progress", `${percent}%`);
+    bar.setAttribute("aria-valuenow", String(percent));
+  });
 }
 
-function formatDuration(minutes) {
-  return `${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, "0")}`;
+function activateTab(name, { persist = true } = {}) {
+  els.tabButtons.forEach((button) => {
+    button.setAttribute("aria-selected", String(button.dataset.tab === name));
+  });
+  Object.entries(els.panels).forEach(([key, panel]) => {
+    const active = key === name;
+    panel.hidden = !active;
+    panel.classList.toggle("is-active", active);
+  });
+  if (persist) writeText(KEY.activeTab, name);
 }
 
-function dailyCapacity(dateKey, hours = getWorkHours(), timeOff = getTimeOff(), halfDays = getHalfDays()) {
-  if (timeOffForDate(dateKey, timeOff)) return 0;
-  const baseDuration = workDuration(dayKeyFromDate(dateKey), hours);
-  return halfDayForDate(dateKey, halfDays) ? Math.round(baseDuration / 2) : baseDuration;
+function dateOfWeekDay(dayKey) {
+  const monday = mondayFromWeekValue(currentWeek);
+  if (!monday) return new Date();
+  const date = new Date(monday);
+  date.setDate(monday.getDate() + DAY_KEYS.indexOf(dayKey));
+  return date;
 }
 
-function refreshAvailabilityViews() {
+function weekRangeLabel(monday, sunday) {
+  const dayMonth = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "long" });
+  const dayOnly = new Intl.DateTimeFormat("pt-BR", { day: "numeric" });
+  const sameMonth = monday.getMonth() === sunday.getMonth() && monday.getFullYear() === sunday.getFullYear();
+  return sameMonth
+    ? `${dayOnly.format(monday)} a ${dayMonth.format(sunday)}`
+    : `${dayMonth.format(monday)} a ${dayMonth.format(sunday)}`;
+}
+
+function renderWeekMeta() {
+  const monday = mondayFromWeekValue(currentWeek);
+  if (!monday) return;
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const match = /^(\d{4})-W(\d{2})$/.exec(currentWeek);
+  const title = match ? `Semana ${Number(match[2]) · ${match[1]}}` : currentWeek;
+  const shortTitle = match ? `Semana ${Number(match[2])}` : currentWeek;
+  const range = weekRangeLabel(monday, sunday);
+  els.weekMetaTitle.textContent = shortTitle;
+  els.weekMetaRange.textContent = range;
+  els.printWeekRange.textContent = `${title} · ${range}`;
+}
+
+function shiftWeek(offset) {
+  const monday = mondayFromWeekValue(currentWeek) || new Date();
+  monday.setDate(monday.getDate() + offset * 7);
+  currentWeek = weekValueForDate(monday);
+  writeText(KEY.week, currentWeek);
+  els.weekPicker.value = currentWeek;
+  renderWeekMeta();
+  renderCapacity();
+  refreshMetrics();
+}
+
+function buildMobileTabs() {
+  els.mobileTabs.replaceChildren();
+  DAY_KEYS.forEach((dayKey) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.day = dayKey;
+    button.textContent = DAY_LABELS[dayKey];
+    button.addEventListener("click", () => selectDay(dayKey));
+    els.mobileTabs.append(button);
+  });
+  selectDay(DAY_KEYS[(new Date().getDay() + 6) % 7], { silent: true });
+}
+
+function selectDay(dayKey, { silent = false } = {}) {
+  els.grid.dataset.mobileDay = dayKey;
+  $$(".day-card", els.grid).forEach((card) => {
+    const isActive = card.dataset.day === dayKey;
+    card.classList.toggle("is-mobile-active", isActive);
+    card.classList.toggle("is-selected-day", isActive);
+  });
+  $$("button", els.mobileTabs).forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.day === dayKey);
+  });
+  if (!silent) setSelectedDate(localDateKey(dateOfWeekDay(dayKey)));
+}
+
+function setSelectedDate(dateKey) {
+  selectedDate = dateKey;
+  writeText(KEY.selectedDate, dateKey || "");
+  renderAgenda();
+  renderCapacity();
   renderCalendar();
-  renderWeeklyCapacity();
-  renderMonthlyReport();
-  renderAnnualAvailability();
-  if (selectedCalendarDate) renderDailyAgenda();
 }
 
-function renderHalfDays() {
-  const halfDays = getHalfDays();
-  halfDayList.replaceChildren();
-  if (!halfDays.length) {
-    const empty = document.createElement("p");
-    empty.className = "half-day-empty";
-    empty.textContent = "Nenhuma meia jornada cadastrada.";
-    halfDayList.append(empty);
+/* O destaque de "Hoje" é sempre recalculado pela data do sistema; a seleção
+   por clique é independente e se move para a coluna clicada. */
+function markTodayCard() {
+  const todayKey = DAY_KEYS[(new Date().getDay() + 6) % 7];
+  $$(".day-card").forEach((card) => {
+    const isToday = card.dataset.day === todayKey;
+    card.classList.toggle("is-today", isToday);
+    const heading = $(".day-card-header h2", card);
+    let tag = $(".today-tag", card);
+    if (isToday && !tag) {
+      tag = document.createElement("span");
+      tag.className = "today-tag";
+      tag.textContent = "Hoje";
+      heading.after(tag);
+    }
+    if (!isToday) tag?.remove();
+  });
+}
+
+function getAgenda() { return readJSON(KEY.dailyAgenda, {}); }
+function saveAgenda(agenda) { writeJSON(KEY.dailyAgenda, agenda); }
+function getBlocks() { return readJSON(KEY.dailyBlocks, {}); }
+function saveBlocks(blocks) { writeJSON(KEY.dailyBlocks, blocks); }
+function getTimeOff() {
+  const saved = readJSON(KEY.timeOff, {});
+  return {
+    dates: Array.isArray(saved.dates) ? saved.dates : [],
+    recurringDays: Array.isArray(saved.recurringDays) ? saved.recurringDays : [],
+  };
+}
+function saveTimeOff(timeOff) { writeJSON(KEY.timeOff, timeOff); }
+function timeOffForDate(dateKey) {
+  const timeOff = getTimeOff();
+  const dated = timeOff.dates.find((item) => item.date === dateKey);
+  if (dated) return dated;
+  const date = dateFromKey(dateKey);
+  if (!date) return null;
+  const dayKey = DAY_KEYS[(date.getDay() + 6) % 7];
+  return timeOff.recurringDays.includes(dayKey)
+    ? { recurring: true, dayKey, label: "Folga recorrente" }
+    : null;
+}
+function getWorkHours() { return Number(readJSON(KEY.workHours, 8)) || 8; }
+function getGoals() { return readJSON(KEY.monthlyGoals, []); }
+function saveGoals(goals) { writeJSON(KEY.monthlyGoals, goals); }
+
+function agendaConflicts(entries, blocks) {
+  const timed = entries.filter((entry) => entry.type === "custom" && /^\d{1,2}:\d{2}$/.test(entry.time || ""));
+  const conflicts = new Set();
+  for (let i = 0; i < timed.length; i += 1) {
+    for (let j = i + 1; j < timed.length; j += 1) {
+      if (rangesOverlap(timed[i].time, Number(timed[i].duration) || 0, timed[j].time, Number(timed[j].duration) || 0)) {
+        conflicts.add(timed[i].id);
+        conflicts.add(timed[j].id);
+      }
+    }
+  }
+  timed.forEach((entry) => {
+    blocks.forEach((block) => {
+      const blockDuration = Math.max(0, timeToMinutes(block.end) - timeToMinutes(block.start));
+      if (rangesOverlap(entry.time, Number(entry.duration) || 0, block.start, blockDuration)) {
+        conflicts.add(entry.id);
+      }
+    });
+  });
+  return conflicts;
+}
+
+/* Rollover: blocos não marcados no dia anterior voltam como pendências. */
+function getRolloverState() { return readJSON(KEY.rollover, {}); }
+function saveRolloverState(state) { writeJSON(KEY.rollover, state); }
+function markRolloverHandled(yesterdayKey, id) {
+  const state = getRolloverState();
+  const list = state[yesterdayKey] || [];
+  if (!list.includes(id)) list.push(id);
+  state[yesterdayKey] = list;
+  saveRolloverState(state);
+}
+function collectPendingFromYesterday() {
+  if (!selectedDate) return { key: "", items: [] };
+  const date = dateFromKey(selectedDate);
+  if (!date) return { key: "", items: [] };
+  date.setDate(date.getDate() - 1);
+  const yesterdayKey = localDateKey(date);
+  const dismissed = getRolloverState()[yesterdayKey] || [];
+  const dayCard = $(`.day-card[data-day="${DAY_KEYS[(date.getDay() + 6) % 7]}"]`);
+  if (!dayCard) return { key: yesterdayKey, items: [] };
+  const items = $$(".slot-check", dayCard)
+    .filter((check) => !check.checked)
+    .map((check) => ({
+      id: check.dataset.slotCheck,
+      text: $(".slot-text", check.closest(".schedule-slot"))?.textContent.trim() || "",
+    }))
+    .filter((item) => item.text && !dismissed.includes(item.id));
+  return { key: yesterdayKey, items };
+}
+function movePendingToToday(item, yesterdayKey) {
+  if (!selectedDate) return;
+  const taken = new Set((getAgenda()[selectedDate] || []).map((entry) => entry.time));
+  let time = "09:00";
+  for (let hour = 6; hour <= 22; hour += 1) {
+    const candidate = `${String(hour).padStart(2, "0")}:00`;
+    if (!taken.has(candidate)) { time = candidate; break; }
+  }
+  const agenda = getAgenda();
+  agenda[selectedDate] = [...(agenda[selectedDate] || []), { id: randomId(), time, text: item.text, duration: 60 }];
+  saveAgenda(agenda);
+  markRolloverHandled(yesterdayKey, item.id);
+  refreshAfterDataChange();
+  uiState.showStatus(`“${item.text}” movida para hoje às ${time}.`);
+}
+
+function renderAgenda() {
+  els.agendaList.replaceChildren();
+  if (!selectedDate) {
+    els.agendDateLabel.textContent = "Selecione uma data no calendário ou clique em um dia.";
+    els.agendaSummary.textContent = "";
+    els.agendaSummary.className = "daily-agenda-summary";
     return;
   }
-  halfDays
-    .slice()
-    .sort((first, second) => first.date.localeCompare(second.date))
-    .forEach((entry) => {
-      const row = document.createElement("div");
-      row.className = "half-day-item";
-      const text = document.createElement("span");
-      text.textContent = `${formatDate(entry.date)} · ${entry.label || "Meia jornada"} · 50% da jornada`;
+  const date = new Date(`${selectedDate}T12:00:00`);
+  els.agendDateLabel.textContent = new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long", day: "2-digit", month: "long",
+  }).format(date);
+
+  const off = timeOffForDate(selectedDate);
+  const agenda = getAgenda()[selectedDate] || [];
+  const blocks = getBlocks()[selectedDate] || [];
+  const goals = getGoals().filter((goal) => !goal.done && goal.deadline === selectedDate.slice(0, 7));
+
+  const entries = [
+    ...agenda.map((item) => ({ ...item, type: "custom" })),
+    ...blocks.map((item) => ({ ...item, type: "blocked" })),
+    ...goals.map((goal) => ({ id: goal.id, type: "goal", text: goal.text })),
+  ].sort((a, b) => String(a.time || "99:99").localeCompare(String(b.time || "99:99")));
+
+  const total = agenda.reduce((sum, item) => sum + (Number(item.duration) || 0), 0);
+  const conflicts = agendaConflicts(entries, blocks);
+
+  els.agendaSummary.className = "daily-agenda-summary";
+  let summary = `${formatDuration(total)} de compromissos`;
+  if (off) summary = `${off.label || "Folga"} · capacidade reduzida · ${summary}`;
+  if (conflicts.size) {
+    summary += ` · ${conflicts.size} conflito(s) de horário`;
+    els.agendaSummary.classList.add("has-conflict");
+  } else if (total > getWorkHours() * 60) {
+    els.agendaSummary.classList.add("has-overload");
+  }
+  els.agendaSummary.textContent = summary;
+
+  entries.forEach((entry) => {
+    const item = document.createElement("li");
+    item.className = "agenda-entry";
+    if (entry.type === "blocked") item.classList.add("is-blocked");
+
+    if (entry.time) {
+      const time = document.createElement("span");
+      time.className = "entry-time";
+      time.textContent = entry.type === "blocked" ? `${entry.start}–${entry.end}` : entry.time;
+      item.append(time);
+    }
+
+    const text = document.createElement("span");
+    text.className = "entry-text";
+    text.textContent = entry.type === "blocked" ? (entry.label || "Indisponível") : entry.text;
+    item.append(text);
+
+    const tag = document.createElement("span");
+    tag.className = "entry-tag";
+    tag.textContent = entry.type === "custom" ? "Compromisso" : entry.type === "blocked" ? "Bloqueio" : "Meta";
+    item.append(tag);
+
+    if (entry.type !== "goal") {
+      const actions = document.createElement("span");
+      actions.className = "entry-actions";
+      if (entry.type === "custom") {
+        const edit = document.createElement("button");
+        edit.type = "button";
+        edit.textContent = "Editar";
+        edit.addEventListener("click", () => editAgendaEntry(entry.id));
+        actions.append(edit);
+      }
       const remove = document.createElement("button");
       remove.type = "button";
       remove.textContent = "Excluir";
-      remove.addEventListener("click", () => {
-        saveHalfDays(getHalfDays().filter((item) => item.id !== entry.id));
-        renderHalfDays();
-        refreshAvailabilityViews();
-        showStatus("Meia jornada removida.");
-      });
-      row.append(text, remove);
-      halfDayList.append(row);
-    });
-}
-
-function addHalfDay() {
-  if (!halfDayDate.value) {
-    showStatus("Escolha uma data para cadastrar a meia jornada.");
-    return;
-  }
-  const timeOff = getTimeOff();
-  if (timeOffForDate(halfDayDate.value, timeOff)) {
-    showStatus("Essa data já está definida como feriado ou folga integral.");
-    return;
-  }
-  if (!workDuration(dayKeyFromDate(halfDayDate.value))) {
-    showStatus("Essa data não possui jornada padrão ativa para reduzir pela metade.");
-    return;
-  }
-  const halfDays = getHalfDays();
-  if (halfDays.some((item) => item.date === halfDayDate.value)) {
-    showStatus("Já existe uma meia jornada cadastrada nessa data.");
-    return;
-  }
-  halfDays.push({ id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, date: halfDayDate.value, label: halfDayLabel.value.trim() || "Meia jornada" });
-  saveHalfDays(halfDays);
-  halfDayDate.value = "";
-  halfDayLabel.value = "";
-  renderHalfDays();
-  refreshAvailabilityViews();
-  showStatus("Meia jornada adicionada com capacidade proporcional.");
-}
-
-function defaultWorkHours() {
-  return {
-    mon: { enabled: true, start: "09:00", end: "17:00" },
-    tue: { enabled: true, start: "09:00", end: "17:00" },
-    wed: { enabled: true, start: "09:00", end: "17:00" },
-    thu: { enabled: true, start: "09:00", end: "17:00" },
-    fri: { enabled: true, start: "09:00", end: "17:00" },
-    sat: { enabled: false, start: "09:00", end: "13:00" },
-    sun: { enabled: false, start: "09:00", end: "13:00" },
-  };
-}
-
-function getWorkHours() {
-  return { ...defaultWorkHours(), ...plannerStorage.read(workHoursStorageKey, {}) };
-}
-
-function saveWorkHours(hours) {
-  plannerStorage.write(workHoursStorageKey, hours);
-  queueConsolidatedBackup();
-}
-
-function workDuration(dayKey, hours = getWorkHours()) {
-  const day = hours[dayKey];
-  return day?.enabled ? Math.max(timeToMinutes(day.end) - timeToMinutes(day.start), 0) : 0;
-}
-
-function renderWorkHours() {
-  const hours = getWorkHours();
-  workHoursContent.replaceChildren();
-  days.forEach((day) => {
-    const row = document.createElement("div");
-    row.className = "work-hours-row";
-    const label = document.createElement("label");
-    const enabled = document.createElement("input");
-    enabled.type = "checkbox";
-    enabled.checked = Boolean(hours[day.key]?.enabled);
-    label.append(enabled, document.createTextNode(day.label.slice(0, 3)));
-    const start = document.createElement("input");
-    start.type = "time";
-    start.value = hours[day.key]?.start || "09:00";
-    const end = document.createElement("input");
-    end.type = "time";
-    end.value = hours[day.key]?.end || "17:00";
-    const update = () => {
-      const updated = getWorkHours();
-      updated[day.key] = { enabled: enabled.checked, start: start.value, end: end.value };
-      saveWorkHours(updated);
-      refreshAvailabilityViews();
-    };
-    enabled.addEventListener("change", update);
-    start.addEventListener("change", update);
-    end.addEventListener("change", update);
-    row.append(label, start, end);
-    workHoursContent.append(row);
+      remove.addEventListener("click", () => (entry.type === "custom" ? removeAgendaEntry(entry.id) : removeBlock(entry.id)));
+      actions.append(remove);
+      item.append(actions);
+    }
+    els.agendaList.append(item);
   });
+
+  const pending = collectPendingFromYesterday();
+  if (pending.items.length) {
+    const divider = document.createElement("li");
+    divider.className = "rollover-header";
+    divider.textContent = "Pendências de ontem";
+    els.agendaList.append(divider);
+    pending.items.forEach((item) => {
+      const li = document.createElement("li");
+      li.className = "agenda-entry is-rollover";
+      const badge = document.createElement("span");
+      badge.className = "entry-tag rollover-badge";
+      badge.textContent = "Ontem";
+      const text = document.createElement("span");
+      text.className = "entry-text";
+      text.textContent = item.text;
+      const actions = document.createElement("span");
+      actions.className = "entry-actions";
+      const move = document.createElement("button");
+      move.type = "button";
+      move.textContent = "Mover para hoje";
+      move.addEventListener("click", () => movePendingToToday(item, pending.key));
+      const dismiss = document.createElement("button");
+      dismiss.type = "button";
+      dismiss.textContent = "Descartar";
+      dismiss.addEventListener("click", () => {
+        markRolloverHandled(pending.key, item.id);
+        renderAgenda();
+        uiState.showStatus("Pendência descartada.");
+      });
+      actions.append(move, dismiss);
+      li.append(badge, text, actions);
+      els.agendaList.append(li);
+    });
+  }
 }
 
-function rangesOverlap(firstTime, firstDuration, secondTime, secondDuration) {
-  return calendar.rangesOverlap(firstTime, firstDuration, secondTime, secondDuration);
-}
-
-function isTimeBlocked(dateKey, time, duration, ignoreId = "") {
-  return (getDailyBlocks()[dateKey] || []).some((block) => block.id !== ignoreId && rangesOverlap(time, duration, block.time, block.duration));
-}
-
-const { localDateKey, dateFromKey, dateWithAddedMonths, materializeRecurringGoals, reminderDaysFor, shouldShowReminderOnDay, formatDate, deadlineInfo, updateGoalAlerts, weekStart, weekKey, calculateStreak } = createGoalDateTools({ days, getGoals: getMonthlyGoals, saveGoals: saveMonthlyGoals, alertElement: document.querySelector("#deadline-alert") });
-
-const { updateGoalReminders, renderCategoryChart } = createGoalRemindersController({
-  categoryChart, days, categoryLabels, getGoals: getMonthlyGoals, shouldShowReminderOnDay,
-  slotContentForTime, normalizeCategory, deadlineInfo, formatDate,
-});
-
-const capacityReports = createCapacityReports({
-  elements: { capacityContent, monthlyReportContent },
-  getSelectedDate: () => selectedCalendarDate,
-  getCalendarCursor: () => calendarCursor,
-  weekStart,
-  getDailyBlocks,
-  getDailyAgenda,
-  getTimeOff,
-  getHalfDays,
-  getWorkHours,
-  localDateKey,
-  dayKeyFromDate,
-  timeOffForDate,
-  dailyCapacity,
-  getScheduleEntries,
-  workDuration,
-  timeToMinutes,
-  formatDuration,
-});
-const { renderWeeklyCapacity, renderMonthlyReport } = capacityReports;
-
-const { updateTemplateBadge, renderTemplateOptions, renderHistory } = createTemplatesHistoryController({
-  elements: { templateSelect, templateCategoryBadge, categoryFilter, historyList, streakIndicator },
-  getTemplates, normalizeCategory, categoryLabels, getHistory, calculateStreak,
-  onEditHistory: editHistoryEntry, onDeleteHistory: deleteHistoryEntry,
-});
-
-function editHistoryEntry(id) {
-  const history = getHistory();
-  const entry = history.find((item) => item.id === id);
-  if (!entry) return;
-  const label = window.prompt("Identificação da semana:", entry.label);
-  if (!label || !label.trim()) return;
-  const completed = window.prompt(`Prioridades concluídas (0 a ${entry.total}):`, entry.completed);
-  if (completed === null) return;
-  const safeCompleted = Math.max(0, Math.min(entry.total, Number.parseInt(completed, 10) || 0));
-  entry.label = label.trim();
-  entry.completed = safeCompleted;
-  saveHistory(history);
-  renderHistory();
-  showStatus("Registro do histórico atualizado.");
-}
-
-function deleteHistoryEntry(id) {
-  const entry = getHistory().find((item) => item.id === id);
-  if (!entry || !window.confirm(`Excluir o registro “${entry.label}”?`)) return;
-  saveHistory(getHistory().filter((item) => item.id !== id));
-  renderHistory();
-  showStatus("Registro do histórico excluído.");
-}
-
-const goalsCalendarController = createGoalsCalendarController({
-  elements: { monthlyGoalsList, calendarLabel, monthlyCalendar, annualLabel, annualMonths, annualSummary },
-  modal: plannerDialog,
-  days,
-  categoryLabels,
-  getGoals: getMonthlyGoals,
-  saveGoals: saveMonthlyGoals,
-  materializeGoals: materializeRecurringGoals,
-  updateGoalReminders,
-  renderCategoryChart,
-  updateGoalAlerts,
-  getCalendarCursor: () => calendarCursor,
-  getAnnualCursor: () => annualCursor,
-  getSelectedDate: () => selectedCalendarDate,
-  setSelectedDate: (dateKey) => { selectedCalendarDate = dateKey; },
-  selectCalendarDate,
-  getTimeOff,
-  getHalfDays,
-  timeOffForDate,
-  halfDayForDate,
-  dailyCapacity,
-  getWorkHours,
-  workDuration,
-  dayKeyFromDate,
-  localDateKey,
-  normalizeCategory,
-  reminderDaysFor,
-  deadlineInfo,
-  status: showStatus,
-  formatDate,
-  formatDuration,
-});
-const { renderMonthlyGoals, renderCalendar, renderAnnualAvailability } = goalsCalendarController;
-
-function dayKeyFromDate(dateKey) {
-  const date = dateFromKey(dateKey);
-  return days[(date.getDay() + 6) % 7].key;
-}
-
-function timeToMinutes(time) {
-  return calendar.timeToMinutes(time);
-}
-
-const dailyAgendaController = createDailyAgendaController({
-  elements: { list: dailyAgendaList, dateLabel: dailyAgendaDate, summary: dailyAgendaSummary, blockButton: blockDailyTimeButton, addButton: addDailyItemButton },
-  modal: plannerDialog,
-  getSelectedDate: () => selectedCalendarDate,
-  dayKeyFromDate,
-  getScheduleEntries,
-  getMonthlyGoals,
-  getAgenda: getDailyAgenda,
-  getBlocks: getDailyBlocks,
-  saveAgenda: saveDailyAgenda,
-  saveBlocks: saveDailyBlocks,
-  dailyCapacity,
-  timeOffForDate,
-  formatDuration,
-  renderWeeklyCapacity,
-  isTimeBlocked,
-  status: showStatus,
-});
-
-const {
-  render: renderDailyAgenda,
-  add: addDailyAgendaItem,
-  block: blockDailyTime,
-  editBlock: editDailyBlock,
-  removeBlock: deleteDailyBlock,
-  edit: editDailyAgendaItem,
-  remove: deleteDailyAgendaItem,
-  move: moveDailyAgendaItem,
-} = dailyAgendaController;
-
-function selectCalendarDate(dateKey) {
-  selectedCalendarDate = dateKey;
-  const selectedDate = new Date(`${dateKey}T12:00:00`);
-  calendarCursor = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-  annualCursor = selectedDate.getFullYear();
-  renderCalendar();
-  renderDailyAgenda();
-  renderAnnualAvailability();
-}
-
-async function addMonthlyGoal() {
-  const values = await plannerDialog.open({
-    heading: "Adicionar meta mensal",
-    detail: "Defina a meta, a categoria e, se desejar, um prazo com lembrete.",
-    submitLabel: "Adicionar meta",
+async function addAgendaEntry() {
+  if (!selectedDate) {
+    uiState.showStatus("Selecione um dia primeiro.");
+    return;
+  }
+  const values = await modal.open({
+    heading: "Novo compromisso",
     fields: [
-      { name: "text", label: "Meta", type: "text", placeholder: "Ex.: concluir dois capítulos", required: true },
-      { name: "deadline", label: "Prazo", type: "date", value: goalDeadline.value || "" },
-      { name: "reminderTime", label: "Horário do lembrete", type: "time", value: goalReminderTime.value || "08:00" },
-      { name: "recurring", label: "Repetir mensalmente", type: "checkbox", checked: goalRecurring.checked },
+      { name: "time", label: "Horário", type: "time", required: true },
+      { name: "text", label: "Descrição", type: "text", required: true, placeholder: "O que precisa ser feito?" },
+      { name: "duration", label: "Duração (minutos)", type: "number", min: 5, step: 5, value: 30 },
     ],
   });
-  if (!values?.text?.trim()) return;
-  if (values.recurring && !values.deadline) {
-    showStatus("Escolha um prazo antes de repetir uma meta mensalmente.");
+  if (!values) return;
+  if (!/^\d{1,2}:\d{2}$/.test(values.time) || !values.text?.trim() || !(Number(values.duration) > 0)) {
+    uiState.showStatus("Dados inválidos.");
     return;
   }
-  const goals = getMonthlyGoals();
-  const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  goals.push({
-    id,
-    category: normalizeCategory(goalCategory.value),
-    text: values.text.trim(),
-    done: false,
-    deadline: values.deadline || "",
-    reminderTime: values.reminderTime || "08:00",
-    recurring: Boolean(values.recurring),
-    recurrenceId: id,
-    reminderDays: days.map((day) => day.key),
-    createdAt: new Date().toISOString(),
-  });
-  saveMonthlyGoals(goals);
-  goalDeadline.value = "";
-  goalReminderTime.value = "08:00";
-  goalRecurring.checked = false;
-  renderMonthlyGoals();
-  showStatus("Meta mensal adicionada.");
-}
-
-function csvValue(value) {
-  return `"${String(value ?? "").replace(/"/g, '""')}"`;
-}
-
-function exportAllDataCsv() {
-  const rows = [["Tipo", "Identificação", "Categoria", "Item", "Concluídas", "Total", "Prazo", "Data de registro"]];
-  getHistory().forEach((entry) => {
-    const items = Array.isArray(entry.priorities) ? entry.priorities.map((priority) => priority.text).filter(Boolean).join(" | ") : "";
-    rows.push(["Semana", entry.label, "Prioridades", items, entry.completed, entry.total, "", entry.createdAt]);
-  });
-  getMonthlyGoals().forEach((goal) => {
-    rows.push(["Meta mensal", "", categoryLabels[normalizeCategory(goal.category)], goal.text, goal.done ? 1 : 0, 1, goal.deadline || "", goal.createdAt]);
-  });
-  const csv = `\uFEFF${rows.map((row) => row.map(csvValue).join(";")).join("\n")}`;
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "historico-e-metas-planner-semanal.csv";
-  document.body.append(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-  showStatus("Histórico e metas exportados em CSV.");
-}
-
-function archiveWeek(showNotice = true) {
-  const priorities = [1, 2, 3, 4, 5].map((number) => ({
-    text: document.querySelector(`[data-editable="priority-${number}"]`).innerText.trim(),
-    done: Boolean(document.querySelector(`[data-priority="priority-${number}"]`).checked),
-  }));
-  if (!priorities.some((priority) => priority.text || priority.done)) {
-    if (showNotice) showStatus("Adicione prioridades antes de registrar esta semana.");
-    return false;
+  const duration = Number(values.duration);
+  const blocks = getBlocks()[selectedDate] || [];
+  const blocked = blocks.some((block) =>
+    rangesOverlap(values.time, duration, block.start, Math.max(0, timeToMinutes(block.end) - timeToMinutes(block.start))));
+  if (blocked) {
+    uiState.showStatus("Horário bloqueado nesta data.");
+    return;
   }
-  const month = document.querySelector('[data-editable="month"]').innerText.trim();
-  const entry = {
-    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    week: weekKey(),
-    label: month || new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }),
-    createdAt: new Date().toISOString(),
-    completed: priorities.filter((priority) => priority.done).length,
-    total: priorities.length,
-    priorities,
-  };
-  saveHistory([entry, ...getHistory().filter((item) => item.week !== entry.week)]);
+  const agenda = getAgenda();
+  agenda[selectedDate] = [...(agenda[selectedDate] || []), { id: randomId(), time: values.time, text: values.text.trim(), duration }];
+  saveAgenda(agenda);
+  refreshAfterDataChange();
+}
+
+async function editAgendaEntry(id) {
+  const agenda = getAgenda();
+  const entry = (agenda[selectedDate] || []).find((item) => item.id === id);
+  if (!entry) return;
+  const values = await modal.open({
+    heading: "Editar compromisso",
+    fields: [
+      { name: "time", label: "Horário", type: "time", required: true, value: entry.time },
+      { name: "text", label: "Descrição", type: "text", required: true, value: entry.text },
+      { name: "duration", label: "Duração (minutos)", type: "number", min: 5, step: 5, value: entry.duration },
+    ],
+  });
+  if (!values) return;
+  Object.assign(entry, { time: values.time, text: values.text.trim(), duration: Number(values.duration) });
+  saveAgenda(agenda);
+  refreshAfterDataChange();
+}
+
+async function removeAgendaEntry(id) {
+  const agenda = getAgenda();
+  const entry = (agenda[selectedDate] || []).find((item) => item.id === id);
+  if (!entry) return;
+  if (!await modal.confirm({ heading: "Excluir compromisso", detail: `Excluir “${entry.text}”?` })) return;
+  agenda[selectedDate] = (agenda[selectedDate] || []).filter((item) => item.id !== id);
+  if (!agenda[selectedDate].length) delete agenda[selectedDate];
+  saveAgenda(agenda);
+  refreshAfterDataChange();
+}
+
+async function addBlock() {
+  if (!selectedDate) {
+    uiState.showStatus("Selecione um dia primeiro.");
+    return;
+  }
+  const values = await modal.open({
+    heading: "Bloquear horário",
+    fields: [
+      { name: "start", label: "Início do bloqueio", type: "time", required: true },
+      { name: "end", label: "Fim do bloqueio", type: "time", required: true },
+      { name: "label", label: "Motivo (opcional)", type: "text" },
+    ],
+  });
+  if (!values) return;
+  if (!/^\d{1,2}:\d{2}$/.test(values.start) || !/^\d{1,2}:\d{2}$/.test(values.end) || timeToMinutes(values.end) <= timeToMinutes(values.start)) {
+    uiState.showStatus("Intervalo inválido.");
+    return;
+  }
+  const blocks = getBlocks();
+  blocks[selectedDate] = [...(blocks[selectedDate] || []), { id: randomId(), start: values.start, end: values.end, label: values.label?.trim() || "" }];
+  saveBlocks(blocks);
+  refreshAfterDataChange();
+}
+
+async function removeBlock(id) {
+  const blocks = getBlocks();
+  const entry = (blocks[selectedDate] || []).find((item) => item.id === id);
+  if (!entry) return;
+  if (!await modal.confirm({ heading: "Remover bloqueio", detail: `Remover o bloqueio das ${entry.start} às ${entry.end}?`, confirmLabel: "Remover" })) return;
+  blocks[selectedDate] = (blocks[selectedDate] || []).filter((item) => item.id !== id);
+  if (!blocks[selectedDate].length) delete blocks[selectedDate];
+  saveBlocks(blocks);
+  refreshAfterDataChange();
+}
+
+function refreshAfterDataChange() {
+  renderAgenda();
+  renderCapacity();
+  refreshMetrics();
+}
+
+function renderCapacity() {
+  const monday = mondayFromWeekValue(currentWeek);
+  els.capacityContent.replaceChildren();
+  if (!monday) {
+    els.capacityContent.textContent = "Escolha uma semana válida.";
+    return;
+  }
+  const workHours = getWorkHours();
+  let totalCapacity = 0;
+  let totalUsed = 0;
+  let selectedUsed = null;
+  let selectedCapacity = null;
+
+  DAY_KEYS.forEach((dayKey, index) => {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + index);
+    const dateKey = localDateKey(date);
+    const off = timeOffForDate(dateKey);
+    let capacity = workHours * 60;
+    if (off) capacity = off.half ? Math.round(capacity / 2) : 0;
+    const used =
+      (getAgenda()[dateKey] || []).reduce((sum, item) => sum + (Number(item.duration) || 0), 0) +
+      (getBlocks()[dateKey] || []).reduce((sum, block) => sum + Math.max(0, timeToMinutes(block.end) - timeToMinutes(block.start)), 0);
+    totalCapacity += capacity;
+    totalUsed += used;
+
+    const row = document.createElement("div");
+    row.className = "capacity-row";
+    if (used > capacity) row.classList.add("is-over");
+    if (dateKey === selectedDate) {
+      row.classList.add("is-selected");
+      selectedUsed = used;
+      selectedCapacity = capacity;
+    }
+
+    const label = document.createElement("span");
+    label.textContent = `${DAY_LABELS[dayKey]} ${date.getDate()}`;
+
+    const meter = document.createElement("div");
+    meter.className = "capacity-meter";
+    const fill = document.createElement("span");
+    const percent = capacity > 0 ? Math.min(100, Math.round((used / capacity) * 100)) : used > 0 ? 100 : 0;
+    fill.style.width = `${percent}%`;
+    meter.append(fill);
+
+    const value = document.createElement("span");
+    value.textContent = `${formatDuration(used)} / ${formatDuration(capacity)}`;
+
+    row.append(label, meter, value);
+    els.capacityContent.append(row);
+  });
+
+  const total = document.createElement("p");
+  total.className = "capacity-total";
+  total.textContent = `Total: ${formatDuration(totalUsed)} comprometidos de ${formatDuration(totalCapacity)}`;
+  els.capacityContent.append(total);
+
+  if (selectedUsed != null && selectedDate) {
+    const selectedDateObj = dateFromKey(selectedDate);
+    if (selectedDateObj) {
+      const note = document.createElement("p");
+      note.className = "capacity-selected-note";
+      const formatter = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "short" });
+      note.textContent = `Dia selecionado (${formatter.format(selectedDateObj)}): ${formatDuration(selectedUsed)} de ${formatDuration(selectedCapacity)}.`;
+      els.capacityContent.append(note);
+    }
+  }
+}
+
+function getHistory() { return readJSON(KEY.history, []); }
+
+function recordWeekSnapshot() {
+  const ratios = $$(".day-card").map((card) => {
+    const checks = $$(".slot-check", card);
+    return checks.length ? checks.filter((item) => item.checked).length / checks.length : 0;
+  });
+  const average = ratios.length ? ratios.reduce((sum, value) => sum + value, 0) / ratios.length : 0;
+  const history = getHistory().filter((entry) => entry.week !== currentWeek);
+  history.push({ week: currentWeek, ratio: Number(average.toFixed(2)), savedAt: new Date().toISOString() });
+  history.sort((a, b) => (a.week < b.week ? -1 : 1));
+  writeJSON(KEY.history, history);
   renderHistory();
-  if (showNotice) showStatus("Semana registrada no histórico local.");
-  return true;
+  renderStreak();
 }
 
-function saveTemplate() {
-  const name = window.prompt("Nome deste modelo de rotina:");
-  if (!name || !name.trim()) return;
-  const templates = getTemplates();
-  const template = {
-    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    name: name.trim(),
-    category: normalizeCategory(templateCategory.value),
-    fields: getFieldValues(),
-    checklist: getChecklistValues(),
-    priorities: getPriorityValues(),
-  };
-  templates.push(template);
-  saveTemplates(templates);
-  renderTemplateOptions(template.id);
-  showStatus("Modelo de rotina salvo neste navegador.");
-}
+function renderHistory() {
+  const history = getHistory().slice(-12).reverse();
+  els.historyList.replaceChildren();
 
-function loadTemplate() {
-  const template = getTemplates().find((item) => item.id === templateSelect.value);
-  if (!template) {
-    showStatus("Escolha um modelo salvo para carregar.");
+  const ascending = [...history].reverse();
+  const recent = ascending.slice(-4);
+  if (recent.length) {
+    const chart = document.createElement("li");
+    chart.className = "history-sparkline";
+    chart.setAttribute("aria-label", "Tendência das últimas quatro semanas");
+    recent.forEach((entry) => {
+      const cell = document.createElement("span");
+      cell.className = "spark-cell";
+      const bar = document.createElement("i");
+      bar.style.height = `${Math.max(Math.round(entry.ratio * 100), 4)}%`;
+      bar.title = `${entry.week}: ${Math.round(entry.ratio * 100)}% concluído`;
+      const label = document.createElement("small");
+      label.textContent = String(entry.week || "").replace(/^\d{4}-W/, "S");
+      cell.append(bar, label);
+      chart.append(cell);
+    });
+    els.historyList.append(chart);
+  }
+
+  if (!history.length) {
+    const empty = document.createElement("li");
+    empty.className = "history-item";
+    empty.textContent = "Sem registros ainda.";
+    els.historyList.append(empty);
     return;
   }
-  applyFieldValues(template.fields || {});
-  applyChecklistValues(template.checklist || {});
-  applyPriorityValues(template.priorities || {});
-  templateCategory.value = normalizeCategory(template.category);
-  savePlanner();
-  showStatus(`Modelo “${template.name}” carregado.`);
-}
-
-function renameTemplate() {
-  const templates = getTemplates();
-  const index = templates.findIndex((item) => item.id === templateSelect.value);
-  if (index < 0) {
-    showStatus("Escolha um modelo salvo para renomear.");
-    return;
-  }
-  const name = window.prompt("Novo nome do modelo:", templates[index].name);
-  if (!name || !name.trim()) return;
-  templates[index].name = name.trim();
-  saveTemplates(templates);
-  renderTemplateOptions(templates[index].id);
-  showStatus("Modelo de rotina renomeado.");
-}
-
-function duplicateTemplate() {
-  const source = getTemplates().find((item) => item.id === templateSelect.value);
-  if (!source) {
-    showStatus("Escolha um modelo salvo para duplicar.");
-    return;
-  }
-  const name = window.prompt("Nome da nova variação:", `Cópia de ${source.name}`);
-  if (!name || !name.trim()) return;
-  const copy = {
-    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    name: name.trim(),
-    category: normalizeCategory(source.category),
-    fields: { ...(source.fields || {}) },
-    checklist: { ...(source.checklist || {}) },
-    priorities: { ...(source.priorities || {}) },
-  };
-  const templates = [...getTemplates(), copy];
-  saveTemplates(templates);
-  categoryFilter.value = "all";
-  renderTemplateOptions(copy.id);
-  showStatus("Nova variação de modelo criada.");
-}
-
-function deleteTemplate() {
-  const templates = getTemplates();
-  const template = templates.find((item) => item.id === templateSelect.value);
-  if (!template) {
-    showStatus("Escolha um modelo salvo para excluir.");
-    return;
-  }
-  if (!window.confirm(`Excluir o modelo “${template.name}”?`)) return;
-  saveTemplates(templates.filter((item) => item.id !== template.id));
-  renderTemplateOptions();
-  showStatus("Modelo de rotina excluído.");
-}
-
-function exportTemplates() {
-  const payload = {
-    app: "planner-semanal",
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    templates: getTemplates(),
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "modelos-planner-semanal.json";
-  document.body.append(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-  showStatus("Modelos exportados em arquivo JSON.");
-}
-
-function isValidTemplate(item) {
-  return item && typeof item.name === "string" && item.name.trim() && typeof item.fields === "object" && !Array.isArray(item.fields);
-}
-
-async function importTemplates(event) {
-  const file = event.target.files?.[0];
-  if (!file) return;
-  if (file.size > 1024 * 1024) {
-    showStatus("O arquivo deve ter no máximo 1 MB.");
-    event.target.value = "";
-    return;
-  }
-  try {
-    const imported = JSON.parse(await file.text());
-    const incoming = Array.isArray(imported) ? imported : imported.templates;
-    if (!Array.isArray(incoming)) throw new Error("Estrutura inválida");
-    const validTemplates = incoming.filter(isValidTemplate).map((template) => ({
-      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      name: template.name.trim(),
-      category: normalizeCategory(template.category),
-      fields: template.fields,
-      checklist: template.checklist && typeof template.checklist === "object" ? template.checklist : {},
-      priorities: template.priorities && typeof template.priorities === "object" ? template.priorities : {},
-    }));
-    if (!validTemplates.length) throw new Error("Nenhum modelo válido");
-    const templates = [...getTemplates(), ...validTemplates];
-    saveTemplates(templates);
-    renderTemplateOptions(validTemplates.at(-1).id);
-    showStatus(`${validTemplates.length} modelo(s) importado(s).`);
-  } catch {
-    showStatus("Não foi possível importar este arquivo de modelos.");
-  } finally {
-    event.target.value = "";
-  }
-}
-
-function clearPlanner() {
-  if (!window.confirm("Limpar todos os campos e iniciar uma nova semana?")) return;
-  archiveWeek(false);
-  allEditables().forEach((element) => { element.textContent = ""; });
-  applyChecklistValues({});
-  applyPriorityValues({});
-  savePlanner();
-  templateSelect.value = "";
-  showStatus("Nova semana iniciada. Todos os campos foram limpos.");
-}
-
-function exportMarkdown() {
-  const week = weekRangeDisplay.textContent.trim() || "Semana atual";
-  const lines = [`# Planner Operacional Semanal`, ``, `**Período:** ${week}`, ``, `## Prioridades`];
-  allPriorityItems().forEach((item, index) => {
-    const text = document.querySelector(`[data-editable="priority-${index + 1}"]`)?.innerText.trim() || "";
-    lines.push(`- [${item.checked ? "x" : " "}] ${text || `Prioridade ${index + 1}`}`);
+  history.forEach((entry) => {
+    const item = document.createElement("li");
+    item.className = "history-item";
+    const week = document.createElement("strong");
+    week.textContent = entry.week;
+    const ratio = document.createElement("span");
+    ratio.textContent = `${Math.round(entry.ratio * 100)}% concluído`;
+    item.append(week, ratio);
+    els.historyList.append(item);
   });
-  days.forEach((day) => {
-    lines.push(``, `## ${day.label}`);
-    getScheduleEntries(day.key).forEach((entry) => {
-      const checked = entry.slot.querySelector("[data-slot-check]")?.checked;
-      lines.push(`- [${checked ? "x" : " "}] ${entry.time} · ${entry.text} · ${entry.duration} min`);
+}
+
+function renderStreak() {
+  const history = getHistory();
+  let streak = 0;
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    if (history[i].ratio >= 0.8) streak += 1;
+    else break;
+  }
+  els.streakIndicator.textContent = streak
+    ? `🔥 ${streak} semana(s) seguida(s) com pelo menos 80% de conclusão.`
+    : "Complete 80% de uma semana para iniciar sua sequência.";
+}
+
+async function clearHistory() {
+  if (!await modal.confirm({ heading: "Limpar histórico", detail: "Todo o histórico de semanas será apagado.", confirmLabel: "Limpar" })) return;
+  writeJSON(KEY.history, []);
+  renderHistory();
+  renderStreak();
+}
+
+function goalBadgeInfo(goal) {
+  if (!goal.deadline || !/^\d{4}-\d{2}$/.test(goal.deadline)) return { state: "open", label: "sem prazo" };
+  const [year, month] = goal.deadline.split("-").map(Number);
+  const now = new Date();
+  const monthsUntil = (year - now.getFullYear()) * 12 + (month - 1 - now.getMonth());
+  if (monthsUntil < 0) return { state: "overdue", label: "atrasada" };
+  if (monthsUntil === 0) return { state: "soon", label: "este mês" };
+  return { state: "scheduled", label: `em ${monthsUntil} mês(es)` };
+}
+
+function renderGoals() {
+  const goals = getGoals();
+  els.goalsList.replaceChildren();
+  if (!goals.length) {
+    const empty = document.createElement("li");
+    empty.className = "goal-item";
+    empty.textContent = "Nenhuma meta cadastrada.";
+    els.goalsList.append(empty);
+    return;
+  }
+  goals.forEach((goal) => {
+    const item = document.createElement("li");
+    item.className = "goal-item";
+    if (goal.done) item.classList.add("is-done");
+
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.checked = Boolean(goal.done);
+    check.addEventListener("change", () => {
+      goal.done = check.checked;
+      saveGoals(getGoals().map((entry) => (entry.id === goal.id ? goal : entry)));
+      renderGoals();
+    });
+
+    const cat = document.createElement("span");
+    const categoryKey = CATEGORY_LABELS[goal.category] ? goal.category : "pessoal";
+    cat.className = "goal-cat";
+    cat.dataset.category = categoryKey;
+    cat.textContent = CATEGORY_LABELS[categoryKey];
+
+    const text = document.createElement("span");
+    text.className = "goal-text";
+    text.textContent = goal.text;
+
+    const badge = document.createElement("span");
+    const info = goalBadgeInfo(goal);
+    badge.className = `goal-badge state-${info.state}`;
+    badge.textContent = info.label;
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "goal-remove";
+    remove.textContent = "×";
+    remove.setAttribute("aria-label", `Remover meta ${goal.text}`);
+    remove.addEventListener("click", async () => {
+      if (!await modal.confirm({ heading: "Remover meta", detail: `Remover “${goal.text}”?`, confirmLabel: "Remover" })) return;
+      saveGoals(getGoals().filter((entry) => entry.id !== goal.id));
+      renderGoals();
+      renderAgenda();
+    });
+
+    item.append(check, cat, text, badge, remove);
+    els.goalsList.append(item);
+  });
+}
+
+function renderCalendar() {
+  const { year, month } = calendarCursor;
+  els.calendarTitle.textContent = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" })
+    .format(new Date(year, month, 1));
+  els.calendarGrid.replaceChildren();
+
+  WEEKDAY_LETTERS.forEach((letter) => {
+    const cell = document.createElement("span");
+    cell.className = "calendar-weekday";
+    cell.textContent = letter;
+    els.calendarGrid.append(cell);
+  });
+
+  const firstDay = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayKey = localDateKey(new Date());
+  const agenda = getAgenda();
+  const blocks = getBlocks();
+  const timeOff = getTimeOff();
+  const goals = getGoals();
+  const monthName = new Intl.DateTimeFormat("pt-BR", { month: "long" }).format(firstDay);
+
+  for (let blank = 0; blank < firstDay.getDay(); blank += 1) {
+    const filler = document.createElement("span");
+    filler.className = "calendar-day is-outside";
+    els.calendarGrid.append(filler);
+  }
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const date = new Date(year, month, day);
+    const dateKey = localDateKey(date);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "calendar-day";
+    button.textContent = String(day);
+    if (dateKey === todayKey) button.classList.add("is-today");
+    if (dateKey === selectedDate) button.classList.add("is-selected");
+
+    const dayAgenda = agenda[dateKey] || [];
+    const dayBlocks = blocks[dateKey] || [];
+    const dayGoals = goals.filter((goal) => goal.deadline === dateKey && !goal.done);
+    const isOff = timeOff.dates.some((item) => item.date === dateKey);
+    const hasMarker = dayAgenda.length > 0 || dayBlocks.length > 0 || isOff || dayGoals.length > 0;
+    if (hasMarker) {
+      button.classList.add("has-marker");
+      if (dayGoals.length) button.classList.add("has-goal");
+      const details = [];
+      if (dayAgenda.length) details.push(`${dayAgenda.length} compromisso(s)`);
+      if (dayBlocks.length) details.push(`${dayBlocks.length} bloqueio(s)`);
+      if (dayGoals.length) details.push(`${dayGoals.length} meta(s)`);
+      if (isOff) details.push("folga ou feriado");
+      button.title = details.join(" · ");
+      button.setAttribute("aria-label", `${day} de ${monthName}: ${details.join(", ")}`);
+    }
+
+    button.addEventListener("click", () => setSelectedDate(dateKey));
+    els.calendarGrid.append(button);
+  }
+}
+
+let focusTotalSeconds = 25 * 60;
+let focusRemaining = focusTotalSeconds;
+let focusInterval = null;
+
+function renderFocusClock() {
+  const minutes = Math.floor(focusRemaining / 60);
+  const seconds = focusRemaining % 60;
+  els.focusClock.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+function stopFocusTimer() {
+  window.clearInterval(focusInterval);
+  focusInterval = null;
+}
+function setFocusStatus(message) {
+  if (els.focusStatus) els.focusStatus.textContent = message;
+}
+function setFocusDuration(minutes) {
+  stopFocusTimer();
+  focusTotalSeconds = Math.max(1, Math.round(minutes)) * 60;
+  focusRemaining = focusTotalSeconds;
+  els.focusClock.classList.remove("is-running");
+  renderFocusClock();
+  setFocusStatus("");
+}
+
+function renderAdherence() {
+  const checks = $$(".slot-check");
+  const done = checks.filter((item) => item.checked).length;
+  const percent = checks.length ? Math.round((done / checks.length) * 100) : 0;
+  els.adherenceValue.textContent = `${percent}%`;
+  els.adherenceFill.style.width = `${percent}%`;
+  els.adherenceBar?.setAttribute("aria-valuenow", String(percent));
+  els.adherenceNote.textContent = percent >= 80
+    ? "Excelente ritmo — rotina quase completa."
+    : percent > 0
+      ? "Continue marcando os blocos concluídos."
+      : "Marque os blocos concluídos para acompanhar sua aderência.";
+}
+
+function categorizeEntryText(text) {
+  const value = String(text || "");
+  const matched = CATEGORY_RULES.find((rule) => rule.pattern.test(value));
+  return matched ? matched.key : "pessoal";
+}
+
+function renderCategoryChart() {
+  const monday = mondayFromWeekValue(currentWeek);
+  els.categoryChart.replaceChildren();
+  if (!monday) return;
+  const totals = { trabalho: 0, saude: 0, pessoal: 0 };
+  DAY_KEYS.forEach((_, index) => {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + index);
+    const dateKey = localDateKey(date);
+    (getAgenda()[dateKey] || []).forEach((entry) => {
+      totals[categorizeEntryText(entry.text)] += Number(entry.duration) || 0;
     });
   });
-  lines.push(``, `## Revisão`, getFieldValues()["weekly-focus"] || "", ``, `## Gargalos`, ...getBottlenecks().map((item) => `- ${item.label}`), ``, `## Odanote`, ...getOdanote().map((item) => `- **${item.subject}:** ${item.text}`));
-  downloadFile(lines.join("\n"), "planner-semanal.md", "text/markdown;charset=utf-8");
-  showStatus("Resumo da semana exportado em Markdown.");
+  const grandTotal = Object.values(totals).reduce((sum, value) => sum + value, 0);
+  if (!grandTotal) {
+    const empty = document.createElement("p");
+    empty.className = "category-empty";
+    empty.textContent = "Adicione compromissos na agenda para ver a distribuição de horas.";
+    els.categoryChart.append(empty);
+    return;
+  }
+  Object.entries(totals).forEach(([key, minutes]) => {
+    const row = document.createElement("div");
+    row.className = "category-row";
+    row.dataset.category = key;
+
+    const head = document.createElement("div");
+    head.className = "category-row-head";
+    const name = document.createElement("span");
+    name.textContent = CATEGORY_LABELS[key];
+    const value = document.createElement("strong");
+    value.textContent = formatDuration(minutes);
+    head.append(name, value);
+
+    const track = document.createElement("div");
+    track.className = "category-track";
+    const fill = document.createElement("span");
+    fill.style.width = `${Math.round((minutes / grandTotal) * 100)}%`;
+    track.append(fill);
+
+    row.append(head, track);
+    els.categoryChart.append(row);
+  });
+}
+
+function refreshMetrics() {
+  renderAdherence();
+  renderCategoryChart();
+}
+
+const QUICK_PRESETS = {
+  foco: {
+    manha: ["Trabalho profundo — projeto principal", "Trabalho profundo — continuação"],
+    tarde: ["Reuniões operacionais", "Execução e follow-ups"],
+    noite: ["Planejamento do próximo dia", "Encerramento e organização"],
+  },
+  reunioes: {
+    manha: ["Preparação de reuniões", "Reuniões em bloco"],
+    tarde: ["Reuniões em bloco", "Notas e encaminhamentos"],
+    noite: ["Follow-ups leves", "Organização da agenda"],
+  },
+  leve: {
+    manha: ["Tarefas administrativas", "E-mails e comunicações"],
+    tarde: ["Trabalho colaborativo", "Pausa estratégica"],
+    noite: ["Leitura profissional leve", "Encerramento tranquilo"],
+  },
+};
+
+async function applyQuickFill() {
+  const presetKey = $("#quick-fill-preset").value;
+  const preset = QUICK_PRESETS[presetKey];
+  const dayKey = els.grid.dataset.mobileDay || DAY_KEYS[(new Date().getDay() + 6) % 7];
+  if (!preset || !dayKey) return;
+  if (!await modal.confirm({ heading: "Preenchimento rápido", detail: `Substituir os campos de ${DAY_LABELS[dayKey]}?`, confirmLabel: "Substituir" })) return;
+  PERIODS.forEach((period) => {
+    for (let slot = 1; slot <= 2; slot += 1) {
+      const field = $(`[data-editable="${dayKey}-${period.key}-${slot}"]`);
+      if (field) field.textContent = preset[period.key][slot - 1];
+    }
+  });
+  persistPlanner();
+  uiState.showStatus(`Preset aplicado a ${DAY_LABELS[dayKey]} ✓`);
+}
+
+function getTemplates() { return readJSON(KEY.templates, []); }
+
+function renderTemplateSelect() {
+  const templates = getTemplates();
+  els.templateSelect.replaceChildren(new Option("Modelos…", ""), ...templates.map((tpl) => new Option(tpl.name, tpl.id)));
+}
+
+/* Lista visual de modelos: aplicar e excluir sem depender de dropdown cego. */
+function renderTemplatesList() {
+  const list = $("#templates-list");
+  const templates = getTemplates();
+  list.replaceChildren();
+  if (!templates.length) {
+    const empty = document.createElement("li");
+    empty.className = "templates-empty";
+    empty.textContent = "Nenhum modelo salvo ainda. Configure sua semana e clique em “Salvar semana como modelo”.";
+    list.append(empty);
+    return;
+  }
+  templates.forEach((tpl) => {
+    const item = document.createElement("li");
+    item.className = "template-item";
+    const name = document.createElement("span");
+    name.className = "template-name";
+    name.textContent = tpl.name;
+    const meta = document.createElement("small");
+    meta.className = "template-meta";
+    meta.textContent = tpl.week || "";
+    const actions = document.createElement("span");
+    actions.className = "template-actions";
+    const apply = document.createElement("button");
+    apply.type = "button";
+    apply.textContent = "Aplicar";
+    apply.addEventListener("click", () => applyTemplate(tpl.id));
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.textContent = "Excluir";
+    remove.addEventListener("click", () => deleteTemplate(tpl.id));
+    actions.append(apply, remove);
+    item.append(name, meta, actions);
+    list.append(item);
+  });
+}
+
+async function saveTemplate() {
+  const values = await modal.open({
+    heading: "Salvar modelo",
+    fields: [{ name: "name", label: "Nome do modelo", type: "text", required: true }],
+  });
+  if (!values?.name?.trim()) return;
+  const templates = getTemplates();
+  templates.push({
+    id: randomId(),
+    name: values.name.trim(),
+    week: currentWeek,
+    fields: uiState.getFieldValues(),
+    checks: plannerDoc.checks,
+    durations: getDurations(),
+  });
+  writeJSON(KEY.templates, templates);
+  renderTemplateSelect();
+  renderTemplatesList();
+  uiState.showStatus("Modelo salvo ✓");
+}
+
+async function applyTemplate(templateId = els.templateSelect.value) {
+  const template = getTemplates().find((tpl) => tpl.id === templateId);
+  if (!template) {
+    uiState.showStatus("Selecione um modelo.");
+    return;
+  }
+  if (!await modal.confirm({ heading: "Aplicar modelo", detail: `“${template.name}” substituirá os campos atuais.`, confirmLabel: "Aplicar" })) return;
+  uiState.applyFieldValues(template.fields || {});
+  plannerDoc.checks = { ...(template.checks || {}) };
+  $$(".slot-check").forEach((item) => { item.checked = Boolean(plannerDoc.checks[item.dataset.slotCheck]); });
+  writeJSON(KEY.durations, template.durations || {});
+  applyDurations(template.durations || {});
+  syncDoneClasses();
+  persistPlanner();
+  uiState.showStatus("Modelo aplicado ✓");
+}
+
+async function deleteTemplate(templateId = els.templateSelect.value) {
+  const template = getTemplates().find((tpl) => tpl.id === templateId);
+  if (!template) {
+    uiState.showStatus("Selecione um modelo.");
+    return;
+  }
+  if (!await modal.confirm({ heading: "Excluir modelo", detail: `Excluir “${template.name}”?` })) return;
+  writeJSON(KEY.templates, getTemplates().filter((tpl) => tpl.id !== templateId));
+  renderTemplateSelect();
+  renderTemplatesList();
+  uiState.showStatus("Modelo excluído ✓");
 }
 
 const backupController = createBackupController({
-  storage: localStorage,
-  app: "planner-operacional-semanal",
-  version: 3,
-  storageKeys: [storageKey, checklistStorageKey, priorityStorageKey, templatesStorageKey, historyStorageKey, monthlyGoalsStorageKey, dailyAgendaStorageKey, dailyBlocksStorageKey, workHoursStorageKey, timeOffStorageKey, halfDayStorageKey, slotMarksStorageKey, ritualStreakStorageKey, durationsStorageKey, bottleneckStorageKey, odanoteStorageKey, badDayStorageKey, editLockStorageKey, einkStorageKey, themeStorageKey, holidayImportStorageKey, localAlertsStorageKey, activityStorageKey, weekPickerStorageKey],
-  collectSnapshot: () => ({ week: { value: weekPicker.value, display: weekRangeDisplay.textContent }, planner: { fields: getFieldValues(), checklist: getChecklistValues(), priorities: getPriorityValues(), slotMarks: getSlotMarkValues(), durations: getBlockDurations() }, models: getTemplates(), history: getHistory(), monthlyGoals: getMonthlyGoals(), dailyAgenda: getDailyAgenda(), blockedTimes: getDailyBlocks(), workHours: getWorkHours(), timeOff: getTimeOff(), halfDays: getHalfDays(), settings: { theme: localStorage.getItem(themeStorageKey) || "system", localAlerts: localStorage.getItem(localAlertsStorageKey) === "true" } }),
-  restoreSnapshot: (snapshot) => ({ [storageKey]: JSON.stringify(snapshot.planner.fields || {}), [checklistStorageKey]: JSON.stringify(snapshot.planner.checklist || {}), [priorityStorageKey]: JSON.stringify(snapshot.planner.priorities || {}), [slotMarksStorageKey]: JSON.stringify(snapshot.planner.slotMarks || {}), [durationsStorageKey]: JSON.stringify(snapshot.planner.durations || {}), [templatesStorageKey]: JSON.stringify(snapshot.models || []), [historyStorageKey]: JSON.stringify(snapshot.history || []), [monthlyGoalsStorageKey]: JSON.stringify(snapshot.monthlyGoals || []), [dailyAgendaStorageKey]: JSON.stringify(snapshot.dailyAgenda || {}), [dailyBlocksStorageKey]: JSON.stringify(snapshot.blockedTimes || {}), [workHoursStorageKey]: JSON.stringify(snapshot.workHours || {}), [timeOffStorageKey]: JSON.stringify(snapshot.timeOff || []), [halfDayStorageKey]: JSON.stringify(snapshot.halfDays || []), [weekPickerStorageKey]: snapshot.week?.value || weekValueForDate(), [themeStorageKey]: snapshot.settings?.theme || "system", [localAlertsStorageKey]: String(Boolean(snapshot.settings?.localAlerts)) }),
-  field: backupPayloadField,
-  download: downloadFile,
-  status: showStatus,
-});
-const backupPayloadForExport = backupController.payload;
-const queueConsolidatedBackup = () => backupController.queueSync(consolidatedBackupStorageKey);
-scheduleGridController = createScheduleGridController({
-  root: grid, grid, days, times, defaults, timeToMinutes, getBlockDurations, getBlockDuration,
-  durationsStorageKey, queueBackup: queueConsolidatedBackup,
-});
-const restoreBackupPayload = (payload) => backupController.restore(payload, consolidatedBackupStorageKey);
-const exportBackup = () => backupController.exportFile(consolidatedBackupStorageKey);
-const copyBackup = backupController.copy;
-const importBackup = (event) => backupController.importFile(event, consolidatedBackupStorageKey);
-const restoreBackupText = () => backupController.restoreText(consolidatedBackupStorageKey);
-
-function exportPlannerSvg() {
-  const svg = buildPlannerSvg({ days, times, entriesForDay: getScheduleEntries });
-  downloadFile(svg, "planner-semanal.svg", "image/svg+xml;charset=utf-8");
-  showStatus("Imagem SVG do planner exportada.");
-}
-
-function updateDayProgress() {
-  const now = new Date();
-  const minutes = now.getHours() * 60 + now.getMinutes();
-  const percent = Math.min(100, Math.max(0, (minutes / 1440) * 100));
-  dayProgressFill.style.width = `${percent}%`;
-  dayProgressLabel.textContent = `${Math.round(percent)}% do dia transcorrido`;
-}
-
-function escapeIcsText(value) {
-  return String(value || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
-}
-
-function formatIcsDate(date, time) {
-  const [hours, minutes] = String(time).split(":").map(Number);
-  const eventDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), hours || 0, minutes || 0);
-  return `${eventDate.getFullYear()}${String(eventDate.getMonth() + 1).padStart(2, "0")}${String(eventDate.getDate()).padStart(2, "0")}T${String(eventDate.getHours()).padStart(2, "0")}${String(eventDate.getMinutes()).padStart(2, "0")}00`;
-}
-
-function exportRoutineIcs() {
-  const monday = mondayFromWeekValue(weekPicker.value) || weekStart(new Date());
-  const content = buildRoutineIcs({ monday, days, entriesForDay: getScheduleEntries });
-  downloadFile(content, "rotina-semanal.ics", "text/calendar;charset=utf-8");
-  showStatus("Arquivo .ics gerado para importar no calendário.");
-}
-
-const { updateRewardStates, applyBadDayMode, applyEditLock, applyEinkMode, applyLocalAlerts, runLocalAlerts } = createPlannerPreferences({
-  keys: { badDay: badDayStorageKey, editLock: editLockStorageKey, eink: einkStorageKey, localAlerts: localAlertsStorageKey },
-  elements: { badDayButton: toggleBadDayButton, editLockButton: toggleEditLockButton, einkButton: toggleEinkButton, localAlertsButton: toggleLocalAlertsButton },
-  days, toDateKey: localDateKey, timeToMinutes, allEditables, allDurationFields,
-  queueBackup: queueConsolidatedBackup, status: showStatus,
+  storage: {
+    getItem: (key) => localStorage.getItem(key),
+    setItem: (key, value) => localStorage.setItem(key, value),
+    removeItem: (key) => localStorage.removeItem(key),
+  },
+  app: APP_NAME,
+  version: APP_VERSION,
+  storageKeys: BACKUP_STORAGE_KEYS,
+  collectSnapshot: () => ({ planner: safeParse(readText(KEY.planner, "{}")) }),
+  restoreSnapshot: (snapshot) => ({
+    planner: JSON.stringify(snapshot && typeof snapshot === "object" ? snapshot.planner ?? snapshot : {}),
+  }),
+  field: els.backupField,
+  download(filename, content) {
+    const blob = new Blob([content], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename || `backup-${APP_NAME}.json`;
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  },
+  status: (message) => { els.backupStatus.textContent = message; },
 });
 
-const { initializeWeekPicker, renderMobileDayTabs, selectMobileDay, getCurrentBlock, updateLivePlanningStatus } = createPlannerNavigation({
-  elements: { weekPicker, weekRangeDisplay, mobileDayTabs, grid, livePlanningStatus },
-  calendar, days, weekPickerStorageKey, getEntries: getScheduleEntries,
-  getSelectedMobileDay: () => selectedMobileDay,
-  setSelectedMobileDay: (dayKey) => { selectedMobileDay = dayKey; },
-  updateRitualStreak,
-  onWeekChange: () => { queueConsolidatedBackup(); showStatus("Semana atualizada."); },
-});
-
-const focusController = createFocusController({ elements: { overlay: focusOverlay, activeBlock: focusActiveBlock, clock: focusClock, startButton: focusStartButton, enterButton: enterFocusButton }, getCurrentBlock, playChime: () => playFeedbackTone({ frequency: 660, duration: 0.6, volume: 0.05 }), status: showStatus });
-const startFocusTimer = focusController.start;
-const enterFocusMode = focusController.enter;
-const exitFocusMode = focusController.exit;
-const resetFocusTimer = focusController.reset;
-
-function updateQuickFillSelection() {
-  document.querySelectorAll(".schedule-slot.is-quick-selected").forEach((slot) => slot.classList.remove("is-quick-selected"));
-  if (!selectedQuickSlot || selectedQuickSlot.classList.contains("is-continuation")) {
-    [quickFillSelection, mobileQuickFillSelection].filter(Boolean).forEach((element) => { element.textContent = "Selecione um bloco da grade."; });
-    return;
+async function copyBackup() {
+  try {
+    await backupController.copy();
+    uiState.showStatus("Backup copiado ✓");
+  } catch (error) {
+    els.backupStatus.textContent = `Falha ao copiar: ${error.message}`;
   }
-  selectedQuickSlot.classList.add("is-quick-selected");
-  const day = days.find((item) => item.key === selectedQuickSlot.dataset.day);
-  [quickFillSelection, mobileQuickFillSelection].filter(Boolean).forEach((element) => { element.textContent = `${day?.label || "Dia"}, ${selectedQuickSlot.dataset.time}`; });
 }
 
-function ensureQuickFillMark(slot, text, type) {
-  const existing = slot.querySelector(".slot-check");
-  const supportsMark = type === "work" || (type === "study" && ["06:00", "07:00", "08:00"].includes(slot.dataset.time)) || text.includes("Ritual 5S");
-  if (!supportsMark) {
-    existing?.remove();
-    return;
+function downloadBackup() {
+  backupController.exportFile(KEY.backupConsolidated);
+}
+
+async function restoreBackup() {
+  try {
+    const payload = JSON.parse(els.backupField.value);
+    await backupController.restore(payload, KEY.backupConsolidated);
+    reloadFromStorage();
+    els.backupStatus.textContent = "Backup restaurado ✓";
+  } catch {
+    els.backupStatus.textContent = "Cole um backup JSON válido para restaurar.";
   }
-  if (existing) return;
-  const day = days.find((item) => item.key === slot.dataset.day);
-  const mark = document.createElement("label");
-  mark.className = "slot-check";
-  const input = document.createElement("input");
-  input.type = "checkbox";
-  input.dataset.slotCheck = `${slot.dataset.day}-${slot.dataset.time}`;
-  input.setAttribute("aria-label", `Concluir ${text} em ${day?.label || "dia"}`);
-  input.addEventListener("change", () => {
-    input.closest(".schedule-slot")?.classList.toggle("is-marked", input.checked);
-    feedbackCheck();
-    recordMonthlyActivity(input);
-    saveSlotMarks();
-    updateLivePlanningStatus();
-    showStatus("Marcação salva neste navegador.");
+}
+
+function reloadFromStorage() {
+  plannerDoc = loadPlanner();
+  applyStoredValues();
+  refreshDayProgress();
+  renderAgenda();
+  renderCapacity();
+  refreshMetrics();
+  renderGoals();
+  renderCalendar();
+  renderHistory();
+  renderStreak();
+}
+
+function bindEvents() {
+  els.tabButtons.forEach((button) => {
+    button.addEventListener("click", () => activateTab(button.dataset.tab));
   });
-  mark.append(input);
-  slot.append(mark);
-}
 
-function syncQuickFillStatus(slot, text, type) {
-  slot.querySelector(".slot-status")?.remove();
-  const id = `${slot.dataset.day}-${slot.dataset.time}`;
-  const status = type === "study" && slot.dataset.time === "06:00"
-    ? "Foco"
-    : type === "work" && slot.dataset.day === "mon" && slot.dataset.time === "13:00"
-      ? "Trabalho"
-      : id === "wed-22:00" && /ritual 5s/i.test(text)
-        ? "Recuperação"
-        : "";
-  if (!status || !text) return;
-  const badge = document.createElement("span");
-  badge.className = `slot-status slot-status--${type}`;
-  badge.textContent = status;
-  slot.append(badge);
-}
-
-function applyQuickFill(presetKey) {
-  if (!selectedQuickSlot) {
-    showStatus("Selecione primeiro um bloco da grade.");
-    return;
-  }
-  const preset = quickFillPresets[presetKey];
-  if (!preset) return;
-  refreshContinuousBlocks();
-  const result = applyQuickFillPreset({
-    selectedSlot: selectedQuickSlot,
-    preset,
-    times,
-    getSlot: (dayKey, time) => document.querySelector(`[data-editable="slot-${dayKey}-${time}"]`)?.closest(".schedule-slot"),
-    getDurations: getBlockDurations,
-    persistDurations: (durations) => plannerStorage.write(durationsStorageKey, durations),
-    ensureMark: ensureQuickFillMark,
-    syncStatus: syncQuickFillStatus,
+  els.weekPicker.addEventListener("change", () => {
+    currentWeek = els.weekPicker.value || weekValueForDate(new Date());
+    writeText(KEY.week, currentWeek);
+    renderWeekMeta();
+    renderCapacity();
+    refreshMetrics();
   });
-  savePlanner();
-  updateRewardStates();
-  renderAdherence();
-  updateLivePlanningStatus();
-  selectedQuickSlot = document.querySelector(`[data-editable="slot-${result.dayKey}-${times[result.startIndex]}"]`)?.closest(".schedule-slot") || null;
-  updateQuickFillSelection();
-  showStatus(`${preset.label} aplicado${preset.type === "work" && result.appliedSpan < preset.span ? ` por ${result.appliedSpan}h` : ""}.`);
-}
+  $("#week-prev").addEventListener("click", () => shiftWeek(-1));
+  $("#week-next").addEventListener("click", () => shiftWeek(1));
 
-function applyPreviewMarks(previewPage) {
-  const mode = printMarkMode.value;
-  previewPage.querySelectorAll(".slot-check").forEach((mark) => {
-    const checked = mark.querySelector("input")?.checked;
-    mark.replaceChildren(Object.assign(document.createElement("span"), { className: "print-mark-box", textContent: mode === "record" && checked ? "✓" : "" }));
+  els.grid.addEventListener("click", (event) => {
+    const card = event.target.closest(".day-card");
+    if (!card) return;
+    if (event.target.closest("input, button, [contenteditable]")) return;
+    selectDay(card.dataset.day);
   });
+
+  document.addEventListener("input", (event) => {
+    if (event.target.matches?.("[data-editable]")) {
+      syncEmptySlots();
+      debouncedPersist();
+    }
+  });
+
+  document.addEventListener("focusout", (event) => {
+    if (event.target.matches?.("[data-editable]")) syncEmptySlots();
+  });
+
+  document.addEventListener("change", (event) => {
+    if (event.target.matches?.("[data-slot-check], [data-checklist], [data-priority]")) {
+      syncDoneClasses();
+      persistPlanner();
+    }
+  });
+
+  document.addEventListener("paste", (event) => {
+    const target = event.target.closest?.("[contenteditable]");
+    if (!target) return;
+    event.preventDefault();
+    const text = (event.clipboardData || window.clipboardData).getData("text/plain");
+    document.execCommand("insertText", false, text);
+  });
+
+  document.addEventListener("click", (event) => {
+    const chip = event.target.closest?.(".duration-chip");
+    if (chip) {
+      editDuration(chip);
+      return;
+    }
+    const add = event.target.closest?.(".period-add");
+    if (!add) return;
+    const period = add.closest(".day-period");
+    const target = $(".schedule-slot.is-empty .slot-text", period) || $(".schedule-slot .slot-text", period);
+    if (!target) return;
+    target.closest(".schedule-slot").classList.remove("is-empty");
+    period.classList.remove("is-full");
+    target.focus();
+  });
+
+  $("#print-now").addEventListener("click", () => window.print());
+
+  $("#template-save").addEventListener("click", saveTemplate);
+
+  $("#agenda-add").addEventListener("click", addAgendaEntry);
+  $("#agenda-block").addEventListener("click", addBlock);
+
+  $("#quick-fill-apply").addEventListener("click", applyQuickFill);
+
+  $("#history-clear").addEventListener("click", clearHistory);
+
+  $("#goal-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const text = $("#goal-text").value.trim();
+    const deadline = $("#goal-deadline").value;
+    const categoryValue = $("#goal-category").value;
+    const category = ["trabalho", "saude", "pessoal"].includes(categoryValue) ? categoryValue : "pessoal";
+    if (!text) return;
+    const goals = getGoals();
+    goals.push({
+      id: randomId(),
+      text,
+      deadline: /^\d{4}-\d{2}$/.test(deadline || "") ? deadline : null,
+      category,
+      done: false,
+      createdAt: new Date().toISOString(),
+    });
+    saveGoals(goals);
+    renderGoals();
+    event.target.reset();
+  });
+
+  $$(".priority-move").forEach((button) => {
+    button.addEventListener("click", () => {
+      const order = ["p1", "p2", "p3"];
+      const index = order.indexOf(button.dataset.target);
+      const swapWith = button.dataset.priorityMove === "up" ? index - 1 : index + 1;
+      if (index < 0 || swapWith < 0 || swapWith >= order.length) return;
+      swapPriorities(order[index], order[swapWith]);
+    });
+  });
+
+  $("#calendar-prev").addEventListener("click", () => {
+    calendarCursor.month -= 1;
+    if (calendarCursor.month < 0) { calendarCursor.month = 11; calendarCursor.year -= 1; }
+    renderCalendar();
+  });
+  $("#calendar-next").addEventListener("click", () => {
+    calendarCursor.month += 1;
+    if (calendarCursor.month > 11) { calendarCursor.month = 0; calendarCursor.year += 1; }
+    renderCalendar();
+  });
+
+  $("#profile-name").addEventListener("input", (event) => {
+    const profile = getProfile();
+    profile.name = event.target.value.trim();
+    saveProfile(profile);
+    renderProfile();
+  });
+  $("#profile-email").addEventListener("change", (event) => {
+    const profile = getProfile();
+    profile.email = event.target.value.trim();
+    saveProfile(profile);
+    renderProfile();
+  });
+  $("#profile-timezone").addEventListener("change", (event) => {
+    const profile = getProfile();
+    profile.timezone = event.target.value;
+    saveProfile(profile);
+    renderProfile();
+    importHolidays();
+    renderCalendar();
+    renderCapacity();
+  });
+  $("#profile-week-format").addEventListener("change", (event) => {
+    const profile = getProfile();
+    profile.weekFormat = event.target.value;
+    saveProfile(profile);
+    renderProfile();
+  });
+  $("#holiday-sync").addEventListener("click", () => {
+    importHolidays();
+    renderCalendar();
+    renderCapacity();
+  });
+  $("#profile-avatar-button").addEventListener("click", () => $("#profile-photo-input").click());
+  $("#profile-photo-input").addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    await applyProfilePhoto(file);
+  });
+  $("#profile-photo-remove").addEventListener("click", () => {
+    const profile = getProfile();
+    delete profile.photo;
+    saveProfile(profile);
+    renderProfile();
+    uiState.showStatus("Foto removida ✓");
+  });
+
+  $("#pref-theme").addEventListener("change", (event) => {
+    const prefs = getPrefs();
+    prefs.theme = event.target.value;
+    savePrefs(prefs);
+    applyTheme(prefs.theme);
+  });
+  $("#pref-hide-empty").addEventListener("change", (event) => {
+    const prefs = getPrefs();
+    prefs.hideEmpty = event.target.checked;
+    savePrefs(prefs);
+    syncEmptySlots();
+  });
+
+  $$(".focus-chip[data-focus-minutes]").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      setFocusDuration(Number(chip.dataset.focusMinutes));
+      $$(".focus-chip").forEach((item) => item.classList.remove("is-active"));
+      chip.classList.add("is-active");
+    });
+  });
+  $("#focus-custom").addEventListener("click", async () => {
+    const values = await modal.open({
+      heading: "Ciclo personalizado",
+      fields: [
+        { name: "minutes", label: "Minutos de foco", type: "number", min: 1, max: 240, step: 1, value: Math.round(focusTotalSeconds / 60) },
+      ],
+    });
+    if (!values) return;
+    const minutes = Math.round(Number(values.minutes));
+    if (!(minutes > 0)) return;
+    setFocusDuration(minutes);
+    $$(".focus-chip[data-focus-minutes]").forEach((chip) => chip.classList.remove("is-active"));
+    uiState.showStatus(`Ciclo de foco ajustado para ${minutes} min ✓`);
+  });
+
+  $("#focus-start").addEventListener("click", () => {
+    if (focusInterval) return;
+    focusInterval = window.setInterval(() => {
+      focusRemaining -= 1;
+      renderFocusClock();
+      if (focusRemaining <= 0) {
+        stopFocusTimer();
+        focusRemaining = focusTotalSeconds;
+        renderFocusClock();
+        els.focusClock.classList.remove("is-running");
+        setFocusStatus("Ciclo concluído 🎉 Faça uma pausa breve.");
+        uiState.showStatus("Ciclo de foco concluído 🎉");
+      }
+    }, 1000);
+    els.focusClock.classList.add("is-running");
+    setFocusStatus("Em foco — evite trocas de contexto.");
+  });
+  $("#focus-pause").addEventListener("click", () => {
+    stopFocusTimer();
+    els.focusClock.classList.remove("is-running");
+    setFocusStatus(`Pausado em ${els.focusClock.textContent}.`);
+  });
+  $("#focus-reset").addEventListener("click", () => {
+    stopFocusTimer();
+    focusRemaining = focusTotalSeconds;
+    renderFocusClock();
+    els.focusClock.classList.remove("is-running");
+    setFocusStatus("");
+  });
+
+  $("#backup-copy").addEventListener("click", copyBackup);
+  $("#backup-download").addEventListener("click", downloadBackup);
+  $("#backup-restore").addEventListener("click", restoreBackup);
 }
 
-function openPrintPreview() {
-  openPreview({ source: document.querySelector(".planner-page"), sheet: printPreviewSheet, dialog: printPreview, closeButton: printPreviewCloseButton, markMode: printMarkMode.value });
+function init() {
+  els.weekPicker.value = currentWeek;
+  applyStoredValues();
+  refreshDayProgress();
+  markTodayCard();
+  buildMobileTabs();
+  renderWeekMeta();
+  renderTemplateSelect();
+  renderTemplatesList();
+  importHolidays();
+  renderAgenda();
+  renderCapacity();
+  refreshMetrics();
+  renderHistory();
+  renderStreak();
+  renderGoals();
+  renderCalendar();
+  renderFocusClock();
+
+  const profile = getProfile();
+  $("#profile-name").value = profile.name;
+  $("#profile-email").value = profile.email;
+  $("#profile-timezone").value = profile.timezone;
+  $("#profile-week-format").value = profile.weekFormat;
+  const prefs = getPrefs();
+  $("#pref-theme").value = prefs.theme;
+  $("#pref-hide-empty").checked = prefs.hideEmpty;
+  applyTheme(prefs.theme);
+  renderProfile();
+
+  bindEvents();
+  activateTab(readText(KEY.activeTab, "agenda") || "agenda", { persist: false });
 }
 
-function closePrintPreview() {
-  closePreview({ dialog: printPreview, returnFocus: quickPrintButton });
-}
-
-function printFromPreview() {
-  document.body.dataset.printMarkMode = printMarkMode.value;
-  window.print();
-}
-
-function clearMarks() {
-  if (!window.confirm("Limpar as marcações do checklist, prioridades e blocos concluídos?")) return;
-  applyChecklistValues({});
-  applyPriorityValues({});
-  applySlotMarkValues({});
-  savePlanner();
-  saveSlotMarks();
-  showStatus("Marcações limpas. A rotina e as anotações foram preservadas.");
-}
-
-const activateEditing = () => activatePlannerEditing({ allEditables, allChecklistItems, allPriorityItems, allSlotMarks, allDurationFields, savePlanner, feedbackCheck, recordMonthlyActivity, saveSlotMarks, updateLivePlanningStatus, status: showStatus, saveBlockDurations });
-
-startPlanner({
-  actions: { buildSchedule, initializeWeekPicker, renderMobileDayTabs, selectMobileDay, renderWeeklyLoad, activateEditing, loadPlanner, refreshContinuousBlocks, applySlotMarkValues, applyTheme, applyBadDayMode, applyEditLock, applyEinkMode, applyLocalAlerts, renderTemplateOptions, renderHistory, renderMonthlyGoals, renderDailyAgenda, renderWeeklyCapacity, renderWorkHours, renderTimeOff, renderHalfDays, renderMonthlyReport, renderAnnualAvailability, updateRewardStates, renderAdherence, renderBottlenecks, renderOdanote, loadAudioNote, updateLivePlanningStatus, updateDayProgress, queueConsolidatedBackup, runLocalAlerts, saveTemplate, loadTemplate, duplicateTemplate, renameTemplate, deleteTemplate, exportTemplates, importTemplates, updateTemplateBadge, archiveWeek, addMonthlyGoal, addTimeOff, addRecurringTimeOff, importNationalHolidays, addHalfDay, blockDailyTime, addDailyAgendaItem, exportAllDataCsv, clearPlanner, applyQuickFill, openPrintPreview, exportRoutineIcs, toggleTheme, enterFocusMode, clearMarks, startFocusTimer, resetFocusTimer, exitFocusMode, exportMarkdown, exportBackup, importBackup, copyBackup, restoreBackupText, closePrintPreview, printFromPreview, exportPlannerSvg, addBottleneck, addOdanote, toggleAudioNote, playAudioNote, deleteAudioNote },
-  elements: { secondaryTools, saveTemplateButton, loadTemplateButton, duplicateTemplateButton, renameTemplateButton, deleteTemplateButton, exportTemplatesButton, importTemplatesButton, templateFileInput, categoryFilter, templateSelect, archiveWeekButton, addGoalButton, addTimeOffButton, addRecurringTimeOffButton, importNationalHolidaysButton, addHalfDayButton, blockDailyTimeButton, addDailyItemButton, exportDataCsvButton, calendarPreviousButton, calendarNextButton, annualPreviousButton, annualNextButton, clearPlannerButton, grid, quickFillButtons, quickPrintButton, exportIcsButton, toggleThemeButton, enterFocusButton, clearMarksButton, focusStartButton, focusResetButton, focusExitButton, toggleBadDayButton, toggleEditLockButton, toggleEinkButton, toggleLocalAlertsButton, exportMarkdownButton, exportBackupButton, importBackupButton, backupFileInput, copyBackupButton, restoreBackupTextButton, printPreviewCloseButton, printPreviewConfirmButton, printMarkMode, printPreview, exportPlannerSvgButton, addOdanoteButton, recordAudioNoteButton, playAudioNoteButton, deleteAudioNoteButton, focusOverlay },
-  storage: { getItem: (key) => localStorage.getItem(key), removeItem: (key) => localStorage.removeItem(key), keys: { slotMarks: slotMarksStorageKey, theme: themeStorageKey, badDay: badDayStorageKey, editLock: editLockStorageKey, eink: einkStorageKey, localAlerts: localAlertsStorageKey } },
-  dayKeys: days.map((day) => day.key),
-  getSelectedMobileDay: () => selectedMobileDay,
-  onCalendarShift: (offset) => { calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + offset, 1); renderCalendar(); renderMonthlyReport(); },
-  onAnnualShift: (offset) => { annualCursor += offset; renderAnnualAvailability(); },
-  onQuickSlotSelect: (slot) => { selectedQuickSlot = slot; updateQuickFillSelection(); },
-  onToggleBadDay: () => applyBadDayMode(!document.body.classList.contains("is-bad-day")),
-  onToggleEditLock: () => applyEditLock(!document.body.classList.contains("is-edit-locked")),
-  onToggleEink: () => applyEinkMode(!document.body.classList.contains("is-eink")),
-  onToggleLocalAlerts: () => applyLocalAlerts(localStorage.getItem(localAlertsStorageKey) !== "true"),
-});
+init();

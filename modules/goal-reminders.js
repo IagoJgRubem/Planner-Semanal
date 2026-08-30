@@ -1,7 +1,7 @@
 export function createGoalRemindersController({ root = document, categoryChart, days, categoryLabels, getGoals, shouldShowReminderOnDay, slotContentForTime, normalizeCategory, deadlineInfo, formatDate }) {
   const updateGoalReminders = (goals = getGoals()) => {
     const activeGoals = goals.filter((goal) => !goal.done && goal.text?.trim()).sort((first, second) => (first.deadline || "9999-12-31").localeCompare(second.deadline || "9999-12-31"));
-    root.querySelectorAll(".schedule-slot").forEach((slot) => { slot.classList.remove("has-goal-reminder", "reminder-trabalho", "reminder-estudos", "reminder-pessoal", "reminder-saude", "goal-open", "goal-soon", "goal-overdue", "goal-scheduled"); slot.removeAttribute("data-reminder"); });
+      root.querySelectorAll(".schedule-slot").forEach((slot) => { slot.classList.remove("has-goal-reminder", "reminder-trabalho", "reminder-pessoal", "reminder-saude", "goal-open", "goal-soon", "goal-overdue", "goal-scheduled"); slot.removeAttribute("data-reminder"); });
     days.forEach((day) => {
       const goal = activeGoals.find((item) => shouldShowReminderOnDay(item, day.key));
       if (!goal) return;
