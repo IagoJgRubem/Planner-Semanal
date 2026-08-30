@@ -13,30 +13,159 @@ export const PLANNER_STORAGE_KEYS = {
   rollover: "planner.rollover",
 };
 
-export function createJSONStore(storage = window.localStorage) {
+// Indicadores de estouro de cota comuns entre engines (Blink/WebKit/Gecko).
+const QUOTA_ERROR_CODES = new Set([
+  "QuotaExceededError",
+  "NS_ERROR_DOM_QUOTA_REACHED",
+  "QuotaExceededError: DOM Quota Exceeded Error",
+  "NS_ERROR_FILE_NO_DEVICE_SPACE",
+]);
+
+export function isQuotaExceededError(error) {
+  return Boolean(
+    error &&
+    (QUOTA_ERROR_CODES.has(error?.name) ||
+     QUOTA_ERROR_CODES.has(error?.code) ||
+     /quota/i.test(String(error?.name) || "") ||
+     /quota exceeded/i.test(String(error?.message) || "")),
+  );
+}
+
+// Camada leve de fallback para IndexedDB: usada apenas quando o
+// localStorage estoura a cota. O localStorage continua sendo a fonte
+// síncrona principal; chaves volumosas são redirecionadas e um
+// apontador de referência é mantido no lugar. Com isso as chamadas
+// feitas por app.js e pelos testes permanecem intactas.
+
+export function createIDBFallback(databaseName = "planner-db", storeName = "overflow") {
+  let databasePromise;
+
+  function openDatabase() {
+    if (databasePromise) return databasePromise;
+    databasePromise = new Promise((resolve, reject) => {
+      const request = indexedDB.open(databaseName, 1);
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains(storeName)) {
+          request.result.createObjectStore(storeName);
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    return databasePromise;
+  }
+
+  async function getStore(mode) {
+    const database = await openDatabase();
+    const transaction = database.transaction(storeName, mode);
+    return transaction.objectStore(storeName);
+  }
+
+  async function save(key, value) {
+    try {
+      const store = await getStore("readwrite");
+      store.put(value, key);
+    } catch {
+      // Fallback silencioso: se o IndexedDB também falhar, mantém o apontador。
+    }
+  }
+
+  async function load(key) {
+    try {
+      const store = await getStore("readonly");
+      return await new Promise((resolve) => {
+        const request = store.get(key);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => resolve(undefined);
+      });
+    } catch {
+      return undefined;
+    }
+  }
+
+  async function remove(key) {
+    try {
+      const store = await getStore("readwrite");
+      store.delete(key);
+    } catch {
+      // silencioso
+    }
+  }
+
+  return { save, load, remove };
+}
+
+const IDB_REF_PREFIX = "idb:";
+
+function readThrough(storage, key, fallback) {
+  try {
+    const raw = storage.getItem(key);
+    if (raw?.startsWith(IDB_REF_PREFIX)) return undefined; // apontador: valores residem no IndexedDB
+    return raw ? JSON.parse(raw) : fallback;
+
+  } catch {
+    storage.removeItem(key);
+    return fallback;
+
+  }
+}
+
+function writeThrough(storage, idb, key, value, quotaKeys) {
+  const serialized = JSON.stringify(value);
+  try {
+    storage.setItem(key, serialized);
+    return value;
+  } catch (error) {
+    if (idb && isQuotaExceededError(error) && quotaKeys.has(key)) {
+      storage.setItem(key, `${IDB_REF_PREFIX}${key}`);
+      idb.save(key, serialized);
+      return value;
+    }
+    throw error;
+  }
+}
+
+function readTextThrough(storage, key, fallback) {
+  const raw = storage.getItem(key);
+  if (raw?.startsWith(IDB_REF_PREFIX)) {
+    return fallback; // leitura síncrona não aguarda IndexedDB; fallback seguro
+  }
+  return raw ?? fallback;
+
+}
+
+export function createJSONStore(storage = window.localStorage, { idb = null, quotaKeys = new Set() } = {}) {
+  const fallbackIdb = idb || createIDBFallback();
   return {
     read(key, fallback) {
-      try {
-        const raw = storage.getItem(key);
-        return raw ? JSON.parse(raw) : fallback;
-      } catch {
-        storage.removeItem(key);
-        return fallback;
+      const raw = storage.getItem(key);
+      if (raw?.startsWith(IDB_REF_PREFIX)) {
+        return fallback; // apontador: valor residual no IndexedDB não é aguardado no caminho síncrono
       }
+      return readThrough(storage, key, fallback);
     },
     write(key, value) {
-      storage.setItem(key, JSON.stringify(value));
-      return value;
+      return writeThrough(storage, quotaKeys.has(key) ? fallbackIdb : null, key, value, quotaKeys);
     },
     readText(key, fallback = "") {
-      return storage.getItem(key) ?? fallback;
+      return readTextThrough(storage, key, fallback);
     },
     writeText(key, value) {
-      storage.setItem(key, value);
-      return value;
+      try {
+        storage.setItem(key, value);
+        return value;
+      } catch (error) {
+        if (fallbackIdb && isQuotaExceededError(error) && quotaKeys.has(key)) {
+          storage.setItem(key, `${IDB_REF_PREFIX}${key}`);
+          fallbackIdb.save(key, value);
+          return value;
+        }
+        throw error;
+      }
     },
     remove(key) {
       storage.removeItem(key);
+      fallbackIdb?.remove(key);
     },
   };
 }

@@ -426,6 +426,16 @@ function refreshDayProgress() {
   });
 }
 
+let metricsBundleLoaded = false;
+
+function maybeLoadMetricsBundle() {
+  if (metricsBundleLoaded) return;
+  metricsBundleLoaded = true;
+  import("./metrics-lazy.js")
+    .then(({ loadMetricsEnhancements }) => loadMetricsEnhancements())
+    .catch(() => { metricsBundleLoaded = false; });
+}
+
 function activateTab(name, { persist = true } = {}) {
   els.tabButtons.forEach((button) => {
     button.setAttribute("aria-selected", String(button.dataset.tab === name));
@@ -435,6 +445,7 @@ function activateTab(name, { persist = true } = {}) {
     panel.hidden = !active;
     panel.classList.toggle("is-active", active);
   });
+  if (name === "tracking") maybeLoadMetricsBundle();
   if (persist) writeText(KEY.activeTab, name);
 }
 
@@ -461,7 +472,7 @@ function renderWeekMeta() {
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
   const match = /^(\d{4})-W(\d{2})$/.exec(currentWeek);
-  const title = match ? `Semana ${Number(match[2]) · ${match[1]}}` : currentWeek;
+  const title = match ? `Semana ${Number(match[2])} · ${match[1]}` : currentWeek;
   const shortTitle = match ? `Semana ${Number(match[2])}` : currentWeek;
   const range = weekRangeLabel(monday, sunday);
   els.weekMetaTitle.textContent = shortTitle;
@@ -1441,7 +1452,11 @@ function bindEvents() {
 
   document.addEventListener("change", (event) => {
     if (event.target.matches?.("[data-slot-check], [data-checklist], [data-priority]")) {
-      syncDoneClasses();
+      if (event.target.matches?.("[data-slot-check]")) {
+        uiState.toggleDoneClass(event.target, event.target.checked);
+      } else {
+        syncDoneClasses();
+      }
       persistPlanner();
     }
   });

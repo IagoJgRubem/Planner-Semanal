@@ -196,7 +196,7 @@ test("métricas calculam aderência e distribuição por categoria", async () =>
   assert.match(app, /Saúde/);
   assert.match(app, /Pessoal/);
   assert.match(app, /function weekRangeLabel\(/);
-  assert.match(app, /Semana \$\{Number\(match\[2\]\) · \$\{match\[1\]\}/);
+  assert.match(app, /Semana \$\{Number\(match\[2\]\)\} · \$\{match\[1\]\}/);
 });
 
 test("o estado de UI preserva a interface pública", async () => {
@@ -351,4 +351,57 @@ test("o debounce de 350 ms serializa o plannerDoc em uma única escrita", async 
   await new Promise((resolve) => setTimeout(resolve, 460));
   assert.equal(writes, 1);
   assert.deepEqual(JSON.parse(storage.getItem(PLANNER_STORAGE_KEYS.planner)), { fields: { a: "x" } });
+});
+test("o fallback de cota redireciona gravação volumosa ao IndexedDB", async () => {
+  const idbSaved = new Map();
+  const idb = {
+    save: async (key, value) => idbSaved.set(key, value),
+    load: async (key) => idbSaved.get(key),
+    remove: async (key) => idbSaved.delete(key),
+  };
+  const apontadores = new Map();
+const failingStorage = {
+    getItem: () => null,
+    getApontador: (key) => apontadores.get(key) ?? null,
+    setItem: (key, value) => {
+      if (String(value).length > 100) throw Object.assign(new Error("QuotaExceededError"), { name: "QuotaExceededError" });
+      apontadores.set(key, value);
+      return value;
+    },
+    removeItem: () => {},
+  };
+  const store = createJSONStore(failingStorage, { idb, quotaKeys: new Set(["planner.history"]) });
+  const value = { semana: "2026-W34", itens: "x".repeat(500) };
+  assert.equal(store.write("planner.history", value), value);
+  assert.equal(failingStorage.getItem("planner.history"), null);
+  assert.equal(failingStorage.getApontador?.("planner.history"), "idb:planner.history");
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(idbSaved.get("planner.history"), JSON.stringify(value));
+});
+
+test("chaves não volumosas mantêm gravação normal no localStorage", () => {
+  const saved = new Map();
+  const store = createJSONStore({
+    getItem: (key) => saved.get(key) ?? null,
+    setItem: (key, value) => saved.set(key, value),
+    removeItem: (key) => saved.delete(key),
+  });
+  const value = { a: 1 };
+  store.write("planner", value);
+  assert.equal(JSON.parse(saved.get("planner")).a, 1);
+});
+test("o import lazy de métricas é disparado somente na ativação da aba", async () => {
+  const app = await source("modules/app.js");
+  assert.match(app, /let metricsBundleLoaded = false;/);
+  assert.match(app, /if \(name === "tracking"\) maybeLoadMetricsBundle\(\);/);
+  assert.match(app, /import\("\.\/metrics-lazy\.js"\)/);
+  const lazyModule = await import("../modules/metrics-lazy.js");
+  assert.equal(typeof lazyModule.loadMetricsEnhancements, "function");
+  assert.deepEqual(await lazyModule.loadMetricsEnhancements(), { loaded: true, label: "Métricas avançadas disponíveis" });
+});
+
+test("toggleDoneClass alterna is-done no slot sem percorrer a lista toda", async () => {
+  const uiState = await source("modules/planner-ui-state.js");
+  assert.match(uiState, /const toggleDoneClass = \(element, done\) => \{/);
+  assert.match(uiState, /toggleDoneClass,/);
 });

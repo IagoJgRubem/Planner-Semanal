@@ -1,4 +1,9 @@
 export function createPlannerUiState({ root = document, prioritySummary, saveStatus, allEditables, allChecklistItems }) {
+  const toggleDoneClass = (element, done) => {
+    element?.classList.toggle("is-done", Boolean(done));
+    const slot = element?.closest?.(".schedule-slot");
+    slot?.classList.toggle("is-done", Boolean(done));
+  };
   const allPriorityItems = () => [...root.querySelectorAll("[data-priority]")];
   const getFieldValues = () => Object.fromEntries(allEditables().map((element) => [element.dataset.editable, element.innerText.replace(/\n/g, " ").trim()]));
   const getChecklistValues = () => Object.fromEntries(allChecklistItems().map((item) => [item.dataset.checklist, item.checked]));
@@ -16,5 +21,5 @@ export function createPlannerUiState({ root = document, prioritySummary, saveSta
   };
   const applyPriorityValues = (values) => { allPriorityItems().forEach((item) => { item.checked = Boolean(values[item.dataset.priority]); }); updatePrioritySummary(); };
   const showStatus = (message) => { saveStatus.textContent = message; window.clearTimeout(saveStatus.timeoutId); saveStatus.timeoutId = window.setTimeout(() => { saveStatus.textContent = ""; }, 2200); };
-  return { allPriorityItems, getFieldValues, getChecklistValues, getPriorityValues, applyFieldValues, applyChecklistValues, applyPriorityValues, updatePrioritySummary, showStatus };
+  return { allPriorityItems, toggleDoneClass, getFieldValues, getChecklistValues, getPriorityValues, applyFieldValues, applyChecklistValues, applyPriorityValues, updatePrioritySummary, showStatus };
 }
