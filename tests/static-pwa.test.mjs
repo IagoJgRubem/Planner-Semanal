@@ -4,6 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { createBackupController } from "../modules/backup-controller.js";
+import { createJSONStore, loadPlanner, createDebouncedPersist, PLANNER_STORAGE_KEYS } from "../modules/storage.js";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const source = async (file) => readFile(path.join(projectRoot, file), "utf8");
@@ -283,4 +284,71 @@ test("o service worker aplica a estratégia de cache v29 por tipo de recurso", a
     "./modules/backup-controller.js", "./modules/calendar-utils.js",
     "./fonts/inter-latin-ext.woff2", "./fonts/montserrat-latin-ext.woff2",
   ].forEach((asset) => assert.match(worker, new RegExp(asset.replaceAll(".", "\\."))));
+});
+
+function memoryStorage(initial = {}) {
+  const mem = new Map(Object.entries(initial));
+  return {
+    getItem: (key) => (mem.has(key) ? mem.get(key) : null),
+    setItem: (key, value) => mem.set(key, value),
+    removeItem: (key) => mem.delete(key),
+  };
+}
+
+function installBackupController({ version, storage }) {
+  return createBackupController({
+    storage,
+    app: "planner-operacional-semanal",
+    version,
+    storageKeys: ["planner"],
+    collectSnapshot: () => ({ planner: { monday: "Rotina 40m" } }),
+    restoreSnapshot: (snapshot) => ({ planner: JSON.stringify(snapshot.planner ?? {}) }),
+    field: { value: "", focus() {}, select() {} },
+    download() {},
+    status: () => {},
+  });
+}
+
+test("loadPlanner tolera JSON corrompido e remove o dado inválido", () => {
+  const storage = memoryStorage({ planner: "{planner-corrompido" });
+  const doc = loadPlanner(storage, PLANNER_STORAGE_KEYS.planner);
+  assert.deepEqual(doc, { fields: {}, checks: {}, checklist: {}, priorities: {} });
+  assert.equal(storage.getItem(PLANNER_STORAGE_KEYS.planner), null);
+});
+
+test("loadPlanner preserva campos válidos e descarta subcampos inválidos", () => {
+  const storage = memoryStorage({
+    planner: JSON.stringify({ fields: { slot: "ok" }, checks: "não-é-objeto", checklist: { a: true }, priorities: "corrompido" }),
+  });
+  const doc = loadPlanner(storage, PLANNER_STORAGE_KEYS.planner);
+  assert.deepEqual(doc, {
+    fields: { slot: "ok" },
+    checks: {},
+    checklist: { a: true },
+    priorities: {},
+  });
+});
+
+test("o backup rejeita versões superiores à atual sem restaurar dados", async () => {
+  const storage = memoryStorage({ planner: "{}" });
+  const controller = installBackupController({ version: 3, storage });
+  await assert.rejects(
+    () => controller.restore({ app: "planner-operacional-semanal", version: 4, data: { planner: "{}" } }, "planner.backup-consolidated"),
+    /Backup de versão mais recente/,
+  );
+  assert.equal(storage.getItem("planner"), "{}");
+});
+
+test("o debounce de 350 ms serializa o plannerDoc em uma única escrita", async () => {
+  const storage = memoryStorage();
+  let writes = 0;
+  const writePlanner = () => { writes += 1; storage.setItem(PLANNER_STORAGE_KEYS.planner, JSON.stringify({ fields: { a: "x" } })); };
+  const debounced = createDebouncedPersist(writePlanner, 350, globalThis);
+  debounced();
+  debounced();
+  debounced();
+  assert.equal(storage.getItem(PLANNER_STORAGE_KEYS.planner), null);
+  await new Promise((resolve) => setTimeout(resolve, 460));
+  assert.equal(writes, 1);
+  assert.deepEqual(JSON.parse(storage.getItem(PLANNER_STORAGE_KEYS.planner)), { fields: { a: "x" } });
 });
