@@ -113,7 +113,7 @@ test("a tipografia segue a escala editorial com fontes locais", async () => {
   assert.match(css, /src: url\("\.\/fonts\/montserrat-latin-ext\.woff2"\)/);
   assert.match(css, /font-family: "Inter", "Segoe UI", system-ui/);
   assert.match(css, /h1 \{ font-size: 1\.25rem; font-weight: 700;/);
-  assert.match(css, /h2 \{ font-size: 1\.125rem; font-weight: 700;/);
+  assert.match(css, /h2 \{ font-size: 1\.125rem; font-weight: 600; letter-spacing: -0\.02em;/);
   assert.match(css, /h3 \{ font-size: 0\.75rem; font-weight: 600;/);
   assert.match(css, /\.slot-text \{[^}]*font-size: 0\.875rem;/);
   assert.match(css, /\.slot-text \{[^}]*color: var\(--ink-body\);/);
