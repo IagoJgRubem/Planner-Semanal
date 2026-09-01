@@ -296,6 +296,10 @@ function savePrefs(prefs) { writeJSON(KEY.prefs, prefs); }
 function applyTheme(theme) {
   document.body.classList.toggle("theme-dark", theme === "dark");
   document.body.classList.toggle("theme-eink", theme === "eink");
+  $$(".theme-option").forEach((option) => {
+    option.classList.toggle("is-active", option.dataset.themeOption === theme);
+    option.setAttribute("aria-pressed", String(option.dataset.themeOption === theme));
+  });
 }
 
 function initialsFor(name) {
@@ -412,6 +416,8 @@ function syncEmptySlots() {
   $$(".day-period").forEach((period) => {
     const hasEmpty = $$(".schedule-slot", period).some((slot) => slot.classList.contains("is-empty"));
     period.classList.toggle("is-full", !hasEmpty);
+    const allEmpty = $$(".schedule-slot", period).every((slot) => slot.classList.contains("is-empty"));
+    period.classList.toggle("is-collapsed", hideEmpty && allEmpty);
   });
 }
 
@@ -1158,8 +1164,11 @@ function renderAdherence() {
   const done = checks.filter((item) => item.checked).length;
   const percent = checks.length ? Math.round((done / checks.length) * 100) : 0;
   els.adherenceValue.textContent = `${percent}%`;
-  els.adherenceFill.style.width = `${percent}%`;
-  els.adherenceBar?.setAttribute("aria-valuenow", String(percent));
+  const ring = $("#adherence-ring");
+  if (ring) {
+    ring.style.setProperty("--ring-percent", String(percent));
+    ring.setAttribute("aria-valuenow", String(percent));
+  }
   els.adherenceNote.textContent = percent >= 80
     ? "Excelente ritmo — rotina quase completa."
     : percent > 0
@@ -1584,6 +1593,15 @@ function bindEvents() {
     uiState.showStatus("Foto removida ✓");
   });
 
+  $$(".theme-option").forEach((button) => {
+    button.addEventListener("click", () => {
+      const prefs = getPrefs();
+      prefs.theme = button.dataset.themeOption;
+      savePrefs(prefs);
+      applyTheme(prefs.theme);
+      uiState.showStatus(`Tema ${button.textContent.trim()} aplicado ✓`);
+    });
+  });
   $("#pref-theme").addEventListener("change", (event) => {
     const prefs = getPrefs();
     prefs.theme = event.target.value;

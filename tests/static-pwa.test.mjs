@@ -59,7 +59,7 @@ test("a navegação usa três abas e organiza perfil, métricas e ajustes", asyn
     const at = index.indexOf(`id="${id}"`);
     assert.ok(at > trackingAt && at < settingsAt, `${id} deve ficar dentro da aba Métricas`);
   });
-  ["adherence-value", "adherence-fill", "adherence-note", "category-chart"].forEach((id) => {
+  ["adherence-value", "adherence-ring", "adherence-note", "category-chart"].forEach((id) => {
     const at = index.indexOf(`id="${id}"`);
     assert.ok(at > trackingAt && at < settingsAt, `${id} deve ficar dentro da aba Métricas`);
   });

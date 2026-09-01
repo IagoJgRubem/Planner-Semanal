@@ -58,7 +58,7 @@
           <option value="reunioes">Dia de reuniões</option>
           <option value="leve">Ritmo leve</option>
         </select>
-        <button type="button" id="quick-fill-apply">Aplicar ao dia selecionado</button>
+        <button type="button" id="quick-fill-apply" class="btn-primary">Aplicar ao dia selecionado</button>
       </div>
     </section>
 
@@ -456,19 +456,6 @@
     </footer>
 
     <div class="agenda-lower">
-      <section class="panel-card daily-agenda" aria-label="Agenda do dia">
-        <header class="panel-card-header">
-          <h2>Agenda do dia</h2>
-          <p id="agenda-date-label" class="agenda-date-label"></p>
-        </header>
-        <p id="agenda-summary" class="daily-agenda-summary"></p>
-        <ul id="agenda-list" class="daily-agenda-list"></ul>
-        <div class="row-actions">
-          <button type="button" id="agenda-add">Novo compromisso</button>
-          <button type="button" id="agenda-block">Bloquear horário</button>
-        </div>
-      </section>
-
       <aside class="side-tools">
         <section class="panel-card priorities" aria-label="Prioridades do dia">
           <h2>Prioridades</h2>
@@ -523,23 +510,31 @@
             <button type="button" class="focus-chip" id="focus-custom">Personalizado ✎</button>
           </div>
           <div class="row-actions">
-            <button type="button" id="focus-start">Iniciar</button>
+            <button type="button" id="focus-start" class="btn-primary">Iniciar</button>
             <button type="button" id="focus-pause">Pausar</button>
             <button type="button" id="focus-reset">Zerar</button>
           </div>
         </section>
       </aside>
+
+      <section class="panel-card daily-agenda" aria-label="Agenda do dia">
+        <header class="panel-card-header">
+          <h2>Agenda do dia</h2>
+          <p id="agenda-date-label" class="agenda-date-label"></p>
+        </header>
+        <p id="agenda-summary" class="daily-agenda-summary"></p>
+        <ul id="agenda-list" class="daily-agenda-list"></ul>
+        <div class="row-actions">
+          <button type="button" id="agenda-add" class="btn-primary">Novo compromisso</button>
+          <button type="button" id="agenda-block">Bloquear horário</button>
+        </div>
+      </section>
     </div>
   </section>
 
   <section id="panel-tracking" class="tab-panel" role="tabpanel" aria-labelledby="tab-tracking" hidden>
     <div class="tracking-grid">
       <div class="tracking-column">
-        <section class="panel-card capacity" aria-label="Capacidade da semana">
-          <h2>Capacidade da semana</h2>
-          <div id="capacity-content" class="capacity-content"></div>
-        </section>
-
         <section class="panel-card goals" aria-label="Metas do mês">
           <h2>Metas do mês</h2>
           <form id="goal-form" class="row-actions">
@@ -558,26 +553,17 @@
 
       <div class="tracking-column">
         <section class="panel-card progress-group" aria-label="Progresso da semana">
-          <h2>Progresso da semana</h2>
-          <p id="streak-indicator" class="streak-indicator"></p>
-          <p id="adherence-value" class="adherence-value">0%</p>
-          <div class="adherence-bar" role="progressbar" aria-label="Aderência semanal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-            <span id="adherence-fill" class="adherence-fill"></span>
+          <div class="adherence-ring-wrap">
+            <div id="adherence-ring" class="adherence-ring" role="progressbar" aria-label="Aderência semanal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <span id="adherence-value" class="adherence-value">0%</span>
+            </div>
+            <div class="streak-block">
+              <p id="streak-indicator" class="streak-indicator"></p>
+              <p id="adherence-note" class="adherence-note"></p>
+            </div>
           </div>
-          <p id="adherence-note" class="adherence-note"></p>
         </section>
 
-        <section class="panel-card monthly-calendar" aria-label="Calendário mensal">
-          <header class="calendar-header">
-            <button type="button" id="calendar-prev" aria-label="Mês anterior">‹</button>
-            <h2 id="calendar-title"></h2>
-            <button type="button" id="calendar-next" aria-label="Próximo mês">›</button>
-          </header>
-          <div id="monthly-calendar" class="calendar-grid"></div>
-        </section>
-      </div>
-
-      <div class="tracking-column">
         <section class="panel-card category-chart" aria-label="Horas por categoria">
           <h2>Horas por categoria</h2>
           <div id="category-chart" class="category-chart-content"></div>
@@ -589,11 +575,27 @@
           <button type="button" id="history-clear">Limpar histórico</button>
         </section>
       </div>
+
+      <div class="tracking-column">
+        <section class="panel-card monthly-calendar" aria-label="Calendário mensal">
+          <header class="calendar-header">
+            <button type="button" id="calendar-prev" aria-label="Mês anterior">‹</button>
+            <h2 id="calendar-title"></h2>
+            <button type="button" id="calendar-next" aria-label="Próximo mês">›</button>
+          </header>
+          <div id="monthly-calendar" class="calendar-grid"></div>
+        </section>
+
+        <section class="panel-card capacity" aria-label="Capacidade da semana">
+          <h2>Capacidade da semana</h2>
+          <div id="capacity-content" class="capacity-content"></div>
+        </section>
+      </div>
     </div>
   </section>
 
   <section id="panel-settings" class="tab-panel" role="tabpanel" aria-labelledby="tab-settings" hidden>
-    <div class="tracking-grid">
+    <div class="tracking-grid settings-grid">
       <section class="panel-card profile-card" aria-label="Perfil do usuário">
         <h2>Perfil do usuário</h2>
         <div class="profile-row">
@@ -636,13 +638,13 @@
 
       <section class="panel-card prefs-card" aria-label="Preferências de interface">
         <h2>Preferências de interface</h2>
-        <label for="pref-theme">Tema
-          <select id="pref-theme">
-            <option value="light">Claro</option>
-            <option value="dark">Escuro</option>
-            <option value="eink">Alto contraste (E-ink)</option>
-          </select>
-        </label>
+        <span class="pref-label">Tema</span>
+        <div class="theme-segment" role="group" aria-label="Tema da interface">
+          <button type="button" class="theme-option is-active" data-theme-option="light">Claro</button>
+          <button type="button" class="theme-option" data-theme-option="dark">Escuro</button>
+          <button type="button" class="theme-option" data-theme-option="eink">Alto contraste</button>
+        </div>
+        <input type="hidden" id="pref-theme" value="light">
         <label class="pref-toggle">
           <input type="checkbox" id="pref-hide-empty" checked>
           Ocultar turnos vazios (dia reduzido)
@@ -660,9 +662,9 @@
         <select id="template-select" hidden aria-hidden="true" tabindex="-1"></select>
       </section>
 
-      <section class="panel-card backup" aria-label="Gestão de dados">
-        <h2>Gestão de dados</h2>
-        <p class="backup-hint">Exporte ou restaure seus dados locais em JSON. Para restaurar, abra “Ver backup textual”, cole o payload e clique em Restaurar JSON.</p>
+      <section class="panel-card backup storage-card" aria-label="Armazenamento e backup">
+        <h2>Armazenamento &amp; Backup</h2>
+        <p class="backup-hint">Seus dados ficam apenas no navegador. Exporte ou restaure o conjunto completo em JSON.</p>
         <div class="row-actions">
           <button type="button" id="backup-download">Exportar JSON</button>
           <button type="button" id="backup-restore">Restaurar JSON</button>
