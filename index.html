@@ -498,23 +498,7 @@
           </ul>
         </section>
 
-        <section class="panel-card focus-timer" aria-label="Cronômetro de foco">
-          <h2>Foco</h2>
-          <p id="focus-clock" class="focus-clock">25:00</p>
-          <p id="focus-status" class="focus-status" role="status" aria-live="polite"></p>
-          <div class="focus-presets" role="group" aria-label="Duração do ciclo de foco">
-            <button type="button" class="focus-chip" data-focus-minutes="15">15m</button>
-            <button type="button" class="focus-chip is-active" data-focus-minutes="25">25m</button>
-            <button type="button" class="focus-chip" data-focus-minutes="45">45m</button>
-            <button type="button" class="focus-chip" data-focus-minutes="60">60m</button>
-            <button type="button" class="focus-chip" id="focus-custom">Personalizado ✎</button>
-          </div>
-          <div class="row-actions">
-            <button type="button" id="focus-start" class="btn-primary">Iniciar</button>
-            <button type="button" id="focus-pause">Pausar</button>
-            <button type="button" id="focus-reset">Zerar</button>
-          </div>
-        </section>
+        
       </aside>
 
       <section class="panel-card daily-agenda" aria-label="Agenda do dia">
@@ -577,7 +561,25 @@
       </div>
 
       <div class="tracking-column">
-        <section class="panel-card monthly-calendar" aria-label="Calendário mensal">
+        <section class="panel-card focus-timer" aria-label="Cronômetro de foco">
+        <h2>Foco</h2>
+        <p id="focus-clock" class="focus-clock">25:00</p>
+        <p id="focus-status" class="focus-status" role="status" aria-live="polite"></p>
+        <div class="focus-presets" role="group" aria-label="Duração do ciclo de foco">
+        <button type="button" class="focus-chip" data-focus-minutes="15">15m</button>
+        <button type="button" class="focus-chip is-active" data-focus-minutes="25">25m</button>
+        <button type="button" class="focus-chip" data-focus-minutes="45">45m</button>
+        <button type="button" class="focus-chip" data-focus-minutes="60">60m</button>
+        <button type="button" class="focus-chip" id="focus-custom">Personalizado ✎</button>
+        </div>
+        <div class="row-actions">
+        <button type="button" id="focus-start" class="btn-primary">Iniciar</button>
+        <button type="button" id="focus-pause">Pausar</button>
+        <button type="button" id="focus-reset">Zerar</button>
+        </div>
+        </section>
+
+                <section class="panel-card monthly-calendar" aria-label="Calendário mensal">
           <header class="calendar-header">
             <button type="button" id="calendar-prev" aria-label="Mês anterior">‹</button>
             <h2 id="calendar-title"></h2>
