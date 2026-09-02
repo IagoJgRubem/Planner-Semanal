@@ -955,3 +955,39 @@ body.theme-eink .theme-option.is-active { background: #111; color: #fff; }
   .print-priority { display: inline-flex; align-items: center; gap: 1.5mm; }
   .print-box { display: inline-block; width: 3.5mm; height: 3.5mm; border: 0.6pt solid #000; }
 }
+/* Planejado vs Executado */
+.capacity-row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+.capacity-day {
+  font-weight: 600;
+  font-size: .78rem;
+  min-width: 2.8rem;
+}
+.capacity-bars {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  align-items: end;
+    height:  42px;
+    flex:  1;
+}
+.capacity-bar {
+  display: block;
+    width:  100%;
+}
+.capacity-bar.is-planned {
+  background: var(--muted);
+}
+.capacity-bar.is-done {
+  background: var(--accent);
+}
+.capacity-row.is-complete .capacity-bar.is-done {
+  opacity: .85;
+}
+.capacity-total {
+  margin-top: .5rem;
+  font-weight: 600;
+}

@@ -865,69 +865,50 @@ function renderCapacity() {
   const monday = mondayFromWeekValue(currentWeek);
   els.capacityContent.replaceChildren();
   if (!monday) {
-    els.capacityContent.textContent = "Escolha uma semana válida.";
+    els.capacityContent.textContent = "Escolha uma semana valida.";
     return;
   }
-  const workHours = getWorkHours();
-  let totalCapacity = 0;
-  let totalUsed = 0;
-  let selectedUsed = null;
-  let selectedCapacity = null;
-
-  DAY_KEYS.forEach((dayKey, index) => {
+  const values = DAY_KEYS.map((dayKey) => {
+    const entries = getScheduleEntries(dayKey);
+    const planned = entries.reduce((sum, entry) => sum + entry.duration, 0);
+    const handled = entries.filter((entry) => entry.slot.querySelector(".slot-check")?.checked).reduce((sum, entry) => sum + entry.duration, 0);
+    return { planned, handled };
+  });
+  const maxPlanned = Math.max(1, ...values.map((value) => value.planned));
+  let totalPlanned = 0;
+  let totalDone = 0;
+  values.forEach((value, index) => {
+    totalPlanned += value.planned;
+    totalDone += value.handled;
+    const dayKey = DAY_KEYS[index];
     const date = new Date(monday);
     date.setDate(monday.getDate() + index);
     const dateKey = localDateKey(date);
-    const off = timeOffForDate(dateKey);
-    let capacity = workHours * 60;
-    if (off) capacity = off.half ? Math.round(capacity / 2) : 0;
-    const used =
-      (getAgenda()[dateKey] || []).reduce((sum, item) => sum + (Number(item.duration) || 0), 0) +
-      (getBlocks()[dateKey] || []).reduce((sum, block) => sum + Math.max(0, timeToMinutes(block.end) - timeToMinutes(block.start)), 0);
-    totalCapacity += capacity;
-    totalUsed += used;
-
     const row = document.createElement("div");
     row.className = "capacity-row";
-    if (used > capacity) row.classList.add("is-over");
-    if (dateKey === selectedDate) {
-      row.classList.add("is-selected");
-      selectedUsed = used;
-      selectedCapacity = capacity;
-    }
-
+    if (value.handled && value.planned && value.handled >= value.planned) row.classList.add("is-complete");
+    if (dateKey === selectedDate) row.classList.add("is-selected");
     const label = document.createElement("span");
-    label.textContent = `${DAY_LABELS[dayKey]} ${date.getDate()}`;
-
-    const meter = document.createElement("div");
-    meter.className = "capacity-meter";
-    const fill = document.createElement("span");
-    const percent = capacity > 0 ? Math.min(100, Math.round((used / capacity) * 100)) : used > 0 ? 100 : 0;
-    fill.style.width = `${percent}%`;
-    meter.append(fill);
-
-    const value = document.createElement("span");
-    value.textContent = `${formatDuration(used)} / ${formatDuration(capacity)}`;
-
-    row.append(label, meter, value);
+    label.className = "capacity-day";
+    label.textContent = DAY_LABELS[dayKey] + " " + date.getDate();
+    const group = document.createElement("div");
+    group.className = "capacity-bars";
+    const plannedBar = document.createElement("i");
+    plannedBar.className = "capacity-bar is-planned";
+    plannedBar.style.height = Math.max(2, Math.round((value.planned / maxPlanned) * 100)) + "%";
+    plannedBar.title = "Planejado: " + formatDuration(value.planned);
+    const doneBar = document.createElement("i");
+    doneBar.className = "capacity-bar is-done";
+    doneBar.style.height = Math.max(2, Math.round((value.handled / maxPlanned) * 100)) + "%";
+    doneBar.title = "Executado: " + formatDuration(value.handled);
+    group.append(plannedBar, doneBar);
+    row.append(label, group);
     els.capacityContent.append(row);
   });
-
   const total = document.createElement("p");
   total.className = "capacity-total";
-  total.textContent = `Total: ${formatDuration(totalUsed)} comprometidos de ${formatDuration(totalCapacity)}`;
+  total.textContent = "Total: " + formatDuration(totalDone) + " executados de " + formatDuration(totalPlanned);
   els.capacityContent.append(total);
-
-  if (selectedUsed != null && selectedDate) {
-    const selectedDateObj = dateFromKey(selectedDate);
-    if (selectedDateObj) {
-      const note = document.createElement("p");
-      note.className = "capacity-selected-note";
-      const formatter = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "short" });
-      note.textContent = `Dia selecionado (${formatter.format(selectedDateObj)}): ${formatDuration(selectedUsed)} de ${formatDuration(selectedCapacity)}.`;
-      els.capacityContent.append(note);
-    }
-  }
 }
 
 function getHistory() { return readJSON(KEY.history, []); }
