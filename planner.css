@@ -991,3 +991,6 @@ body.theme-eink .theme-option.is-active { background: #111; color: #fff; }
   margin-top: .5rem;
   font-weight: 600;
 }
+/* Chips de duração: discretos ate haver interacao */
+.duration-chip { opacity: .38; }
+.day-period:hover .duration-chip, .duration-chip:focus-visible { opacity: 1; }

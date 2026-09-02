@@ -289,6 +289,7 @@ function getPrefs() {
   return {
     theme: ["light", "dark", "eink"].includes(saved.theme) ? saved.theme : "light",
     hideEmpty: saved.hideEmpty !== false,
+    dayStart: saved.dayStart || "08:00",
   };
 }
 function savePrefs(prefs) { writeJSON(KEY.prefs, prefs); }
@@ -1596,6 +1597,7 @@ function bindEvents() {
     syncEmptySlots();
   });
 
+    $("#pref-day-start").addEventListener("change", (event) => { const prefs = getPrefs(); prefs.dayStart = event.target.value; savePrefs(prefs); uiState.showStatus("Início do dia atualizado ✓"); });
   $$(".focus-chip[data-focus-minutes]").forEach((chip) => {
     chip.addEventListener("click", () => {
       setFocusDuration(Number(chip.dataset.focusMinutes));
@@ -1680,6 +1682,7 @@ function init() {
   const prefs = getPrefs();
   $("#pref-theme").value = prefs.theme;
   $("#pref-hide-empty").checked = prefs.hideEmpty;
+  $("#pref-day-start").value = prefs.dayStart;
   applyTheme(prefs.theme);
   renderProfile();
 
