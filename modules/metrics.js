@@ -1,3 +1,4 @@
+// SUPERSEDED: Legacy domain model no longer matches current app.js architecture. Kept for historical reference only.
 export function createMetricsController({ elements, days, categoryLabels, scheduleRoot = document, getScheduleEntries, getBlockDuration, getMonthlyActivity, getRitualDates, getCalendarCursor, formatDuration }) {
   const { adherenceChart, sundaySummary, monthlyConsistency, weeklyLoad } = elements;
 

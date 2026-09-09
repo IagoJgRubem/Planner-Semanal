@@ -276,7 +276,6 @@ function getProfile() {
   const saved = readJSON(KEY.profile, {});
   return {
     name: typeof saved.name === "string" ? saved.name : "",
-    email: typeof saved.email === "string" ? saved.email : "",
     timezone: typeof saved.timezone === "string" ? saved.timezone : "America/Manaus",
     weekFormat: saved.weekFormat === "sunday" ? "sunday" : "iso",
     photo: typeof saved.photo === "string" && saved.photo.startsWith("data:image/") ? saved.photo : "",
@@ -434,6 +433,7 @@ function refreshDayProgress() {
 }
 
 let metricsBundleLoaded = false;
+let monthlyFocusLoaded = false;
 
 function maybeLoadMetricsBundle() {
   if (metricsBundleLoaded) return;
@@ -453,6 +453,20 @@ function activateTab(name, { persist = true } = {}) {
     panel.classList.toggle("is-active", active);
   });
   if (name === "tracking") maybeLoadMetricsBundle();
+  if (name === "tracking" && !monthlyFocusLoaded) {
+
+    monthlyFocusLoaded = true;
+    import("./monthly-focus.js")
+      .then(({ createMonthlyFocusReport }) => {
+        const store = createJSONStore();
+        const root = document.querySelector("#panel-tracking .tracking-column:last-of-type");
+        if (root) {
+          const report = createMonthlyFocusReport({ root, store });
+          report.render({ year: new Date().getFullYear(), month: new Date().getMonth() });
+        }
+      })
+      .catch(() => { monthlyFocusLoaded = false; });
+  }
   if (persist) writeText(KEY.activeTab, name);
 }
 
@@ -555,6 +569,23 @@ function getAgenda() { return readJSON(KEY.dailyAgenda, {}); }
 function saveAgenda(agenda) { writeJSON(KEY.dailyAgenda, agenda); }
 function getBlocks() { return readJSON(KEY.dailyBlocks, {}); }
 function saveBlocks(blocks) { writeJSON(KEY.dailyBlocks, blocks); }
+
+function getScheduleEntries(dayKey) {
+  // Lê os slots preenchidos do grid estático, com duração do período (chip/configuração storage.
+  const durations = getDurations();
+  return $$(`.schedule-slot[data-day="${dayKey}"]`).map((slot) => {
+    const text = $(".slot-text", slot)?.textContent.trim() || "";
+    if (!text) return null;
+    const period = slot.closest(".day-period");
+    const periodKey = period?.dataset.period || "";
+    const chip = period ? $("[data-duration]", period) : null;
+    const stored = durations[`${dayKey}-${periodKey}`];
+    const duration = typeof stored === "number" && stored > 0
+      ? stored
+      : Number.parseInt(chip?.textContent || "0", 10) || 60;
+    return { slot, text, duration };
+  }).filter(Boolean);
+}
 function getTimeOff() {
   const saved = readJSON(KEY.timeOff, {});
   return {
@@ -1535,12 +1566,6 @@ function bindEvents() {
     saveProfile(profile);
     renderProfile();
   });
-  $("#profile-email").addEventListener("change", (event) => {
-    const profile = getProfile();
-    profile.email = event.target.value.trim();
-    saveProfile(profile);
-    renderProfile();
-  });
   $("#profile-timezone").addEventListener("change", (event) => {
     const profile = getProfile();
     profile.timezone = event.target.value;
@@ -1676,7 +1701,6 @@ function init() {
 
   const profile = getProfile();
   $("#profile-name").value = profile.name;
-  $("#profile-email").value = profile.email;
   $("#profile-timezone").value = profile.timezone;
   $("#profile-week-format").value = profile.weekFormat;
   const prefs = getPrefs();

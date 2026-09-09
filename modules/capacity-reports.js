@@ -1,3 +1,4 @@
+// SUPERSEDED: Legacy domain model no longer matches current app.js architecture. Kept for historical reference only.
 export function createCapacityReports({ elements, getSelectedDate, getCalendarCursor, weekStart, getDailyBlocks, getDailyAgenda, getTimeOff, getHalfDays, getWorkHours, localDateKey, dayKeyFromDate, timeOffForDate, dailyCapacity, getScheduleEntries, workDuration, timeToMinutes, formatDuration }) {
   const { capacityContent, monthlyReportContent } = elements;
 

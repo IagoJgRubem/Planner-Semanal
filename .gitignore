@@ -31,3 +31,6 @@ docs/validacao-a4-uma-folha.pdf
 *~
 .DS_Store
 Thumbs.db
+
+# Habilidades locais do agente (não versionadas)
+.agents/

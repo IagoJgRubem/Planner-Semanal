@@ -1,3 +1,4 @@
+// SUPERSEDED: Legacy domain model no longer matches current app.js architecture. Kept for historical reference only.
 export function createGoalsCalendarController({ elements, modal, days, categoryLabels, getGoals, saveGoals, materializeGoals, updateGoalReminders, renderCategoryChart, updateGoalAlerts, getCalendarCursor, getAnnualCursor, getSelectedDate, setSelectedDate, selectCalendarDate, getTimeOff, getHalfDays, timeOffForDate, halfDayForDate, dailyCapacity, getWorkHours, workDuration, dayKeyFromDate, localDateKey, normalizeCategory, reminderDaysFor, deadlineInfo, status, formatDate, formatDuration }) {
   const { monthlyGoalsList, calendarLabel, monthlyCalendar, annualLabel, annualMonths, annualSummary } = elements;
 
