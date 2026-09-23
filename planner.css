@@ -422,7 +422,50 @@ body.theme-eink .btn-primary { background: #111; border-color: #111; }
 .schedule-slot:hover { background: var(--accent-soft); }
 .schedule-slot:active { transform: scale(0.99); }
 .schedule-slot.is-empty { display: none; }
-.slot-check { margin-top: 3px; accent-color: var(--accent); width: 17px; height: 17px; }
+/* CHECKBOX - Alvo de toque 44x44px via pseudo-elemento invisível (Lei de Fitts) */
+.slot-check {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+  transition: all 0.2s ease;
+  margin-top: 2px;
+}
+
+.slot-check::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
+  z-index: 1;
+  opacity: 0;
+  pointer-events: auto;
+}
+
+.slot-check:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.slot-check:checked::after {
+  content: "✓";
+  color: #fff;
+  font-size: 12px;
+  font-weight: bold;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
 .slot-text {
   flex: 1;
   margin: 0;
@@ -599,7 +642,7 @@ body.theme-dark .rollover-badge { background: rgba(180, 83, 9, 0.25); }
   font-size:  1.45rem;
   font-weight:  700;
   font-variant-numeric:  tabular-nums;
-  color:: var(--ink);
+  color: var(--ink);
 }
 .streak-block {
   display: flex;
