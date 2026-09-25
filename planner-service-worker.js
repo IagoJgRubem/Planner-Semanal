@@ -6,7 +6,7 @@
 //   e Stale-While-Revalidate em tempo de execução.
 // - Navegações (documentos): Network-First com fallback ao index.html em
 //   cache, garantindo documento fresco quando há rede e offline quando não há.
-const STATIC_CACHE = "planner-static-v31";
+const STATIC_CACHE = "planner-static-v30";
 const FONT_CACHE = "planner-fonts-v1";
 
 const PRECACHE_URLS = [
