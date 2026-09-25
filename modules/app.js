@@ -233,6 +233,20 @@ function getScheduleEntries(dayKey) {
   }, []);
 }
 
+function getScheduleEntries(dayKey) {
+  const durations = getDurations();
+  return $$(".schedule-slot[data-day=\"" + dayKey + "\"]").reduce((acc, slot) => {
+    const text = $(".slot-text", slot)?.textContent.trim() || "";
+    if (!text) return acc;
+    const period = slot.closest(".day-period")?.dataset.period || "";
+    const stored = Number(durations[`${dayKey}-${period}`]);
+    const slotsInPeriod = $$(`.schedule-slot[data-day="${dayKey}"]`, slot.closest(".day-period") || document).length || 1;
+    const duration = Number.isFinite(stored) && stored > 0 ? Math.round(stored / slotsInPeriod) : 60;
+    acc.push({ slot, text, duration });
+    return acc;
+  }, []);
+}
+
 function applyStoredValues() {
   uiState.applyFieldValues(plannerDoc.fields);
   uiState.applyChecklistValues(plannerDoc.checklist);

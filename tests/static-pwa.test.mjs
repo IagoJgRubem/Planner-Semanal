@@ -334,7 +334,7 @@ test("o backup rejeita versões superiores à atual sem restaurar dados", async 
   const storage = memoryStorage({ planner: "{}" });
   const controller = installBackupController({ version: 3, storage });
   await assert.rejects(
-    () => controller.restore({ app: "planner-operacional-semanal", version: 4,  { planner: "{}" } }, "planner.backup-consolidated"),
+  () => controller.restore({ app: "planner-operacional-semanal", version: 4, data: { planner: "{}" } }, "planner.backup-consolidated"),
     /Backup de versão mais recente/,
   );
   assert.equal(storage.getItem("planner"), "{}");
