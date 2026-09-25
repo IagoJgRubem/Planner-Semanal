@@ -14,7 +14,6 @@ import {
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
-// Identificador interno estável: mantido para backups antigos continuarem restauráveis.
 const APP_NAME = "planner-operacional-semanal";
 const APP_VERSION = 3;
 const BACKUP_STORAGE_KEYS = ["planner"];
@@ -61,7 +60,6 @@ const CATEGORY_RULES = [
   { key: "saude", pattern: /(treino|academia|caminhad|corrid|sa[uú]de|m[eé]dic|dentist|yoga|alonga)/i },
 ];
 
-// Feriados fixos nacionais e municipais por fuso configurado no perfil.
 const NATIONAL_HOLIDAYS = [
   { month: 1, day: 1, label: "Confraternização Universal" },
   { month: 4, day: 21, label: "Tiradentes" },
@@ -221,21 +219,7 @@ const debouncedPersist = createDebouncedPersist(persistPlanner, 350);
 
 function getScheduleEntries(dayKey) {
   const durations = getDurations();
-  return $$(".schedule-slot[data-day=\"" + dayKey + "\"]").reduce((acc, slot) => {
-    const text = $(".slot-text", slot)?.textContent.trim() || "";
-    if (!text) return acc;
-    const period = slot.closest(".day-period")?.dataset.period || "";
-    const stored = Number(durations[`${dayKey}-${period}`]);
-    const slotsInPeriod = $$(`.schedule-slot[data-day="${dayKey}"]`, slot.closest(".day-period") || document).length || 1;
-    const duration = Number.isFinite(stored) && stored > 0 ? Math.round(stored / slotsInPeriod) : 60;
-    acc.push({ slot, text, duration });
-    return acc;
-  }, []);
-}
-
-function getScheduleEntries(dayKey) {
-  const durations = getDurations();
-  return $$(".schedule-slot[data-day=\"" + dayKey + "\"]").reduce((acc, slot) => {
+  return $$(`.schedule-slot[data-day="${dayKey}"]`).reduce((acc, slot) => {
     const text = $(".slot-text", slot)?.textContent.trim() || "";
     if (!text) return acc;
     const period = slot.closest(".day-period")?.dataset.period || "";
@@ -290,7 +274,6 @@ async function editDuration(chip) {
   uiState.showStatus(`Duração atualizada para ${minutes} min ✓`);
 }
 
-/* Reordenação real das prioridades: troca os estados entre as posições 1, 2 e 3. */
 function swapPriorities(firstKey, secondKey) {
   const values = uiState.getPriorityValues();
   const temp = values[firstKey];
@@ -339,8 +322,6 @@ function initialsFor(name) {
   return `${first}${last}`.toUpperCase();
 }
 
-/* Redimensiona a foto escolhida para um quadrado pequeno antes de salvar,
-   preservando a cota do localStorage. */
 function resizeImageForAvatar(file, size = 160) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -386,21 +367,23 @@ async function applyProfilePhoto(file) {
 
 function renderProfile() {
   const profile = getProfile();
-  els.profileAvatar.textContent = profile.photo ? "" : initialsFor(profile.name);
-  els.profileAvatar.classList.toggle("has-photo", Boolean(profile.photo));
-  els.profileAvatar.style.backgroundImage = profile.photo ? `url("${profile.photo}")` : "";
+  if (els.profileAvatar) {
+    els.profileAvatar.textContent = profile.photo ? "" : initialsFor(profile.name);
+    els.profileAvatar.classList.toggle("has-photo", Boolean(profile.photo));
+    els.profileAvatar.style.backgroundImage = profile.photo ? `url("${profile.photo}")` : "";
+  }
   const removeButton = $("#profile-photo-remove");
   if (removeButton) removeButton.hidden = !profile.photo;
   const timezoneLabel = $("#profile-timezone option:checked")?.textContent || profile.timezone;
   const formatLabel = $("#profile-week-format option:checked")?.textContent || "";
-  els.profileSummary.textContent = [
-    profile.name ? `Planejando como ${profile.name}.` : "Defina seu nome para personalizar o avatar.",
-    `${timezoneLabel} · ${formatLabel}`,
-  ].join(" ");
+  if (els.profileSummary) {
+    els.profileSummary.textContent = [
+      profile.name ? `Planejando como ${profile.name}.` : "Defina seu nome para personalizar o avatar.",
+      `${timezoneLabel} · ${formatLabel}`,
+    ].join(" ");
+  }
 }
 
-/* Importa feriados nacionais e municipais do fuso do perfil para os dois anos
-   correntes, descontando automaticamente a capacidade diária/semanal. */
 function importHolidays() {
   const profile = getProfile();
   const regional = REGIONAL_HOLIDAYS[profile.timezone] || [];
@@ -433,7 +416,6 @@ function importHolidays() {
   return additions.length;
 }
 
-/* Recolhe slots vazios quando "dia reduzido" está ativo; nunca esconde o slot em edição */
 function syncEmptySlots() {
   const hideEmpty = getPrefs().hideEmpty;
   $$(".schedule-slot").forEach((slot) => {
@@ -456,8 +438,10 @@ function refreshDayProgress() {
     const done = checks.filter((item) => item.checked).length;
     const percent = checks.length ? Math.round((done / checks.length) * 100) : 0;
     const bar = $(".day-progress", card);
-    bar.style.setProperty("--progress", `${percent}%`);
-    bar.setAttribute("aria-valuenow", String(percent));
+    if (bar) {
+      bar.style.setProperty("--progress", `${percent}%`);
+      bar.setAttribute("aria-valuenow", String(percent));
+    }
   });
 }
 
@@ -510,9 +494,9 @@ function renderWeekMeta() {
   const title = match ? `Semana ${Number(match[2])} · ${match[1]}` : currentWeek;
   const shortTitle = match ? `Semana ${Number(match[2])}` : currentWeek;
   const range = weekRangeLabel(monday, sunday);
-  els.weekMetaTitle.textContent = shortTitle;
-  els.weekMetaRange.textContent = range;
-  els.printWeekRange.textContent = `${title} · ${range}`;
+  if (els.weekMetaTitle) els.weekMetaTitle.textContent = shortTitle;
+  if (els.weekMetaRange) els.weekMetaRange.textContent = range;
+  if (els.printWeekRange) els.printWeekRange.textContent = `${title} · ${range}`;
 }
 
 function shiftWeek(offset) {
@@ -520,13 +504,14 @@ function shiftWeek(offset) {
   monday.setDate(monday.getDate() + offset * 7);
   currentWeek = weekValueForDate(monday);
   writeText(KEY.week, currentWeek);
-  els.weekPicker.value = currentWeek;
+  if (els.weekPicker) els.weekPicker.value = currentWeek;
   renderWeekMeta();
   renderCapacity();
   refreshMetrics();
 }
 
 function buildMobileTabs() {
+  if (!els.mobileTabs) return;
   els.mobileTabs.replaceChildren();
   DAY_KEYS.forEach((dayKey) => {
     const button = document.createElement("button");
@@ -540,15 +525,19 @@ function buildMobileTabs() {
 }
 
 function selectDay(dayKey, { silent = false } = {}) {
-  els.grid.dataset.mobileDay = dayKey;
-  $$(".day-card", els.grid).forEach((card) => {
-    const isActive = card.dataset.day === dayKey;
-    card.classList.toggle("is-mobile-active", isActive);
-    card.classList.toggle("is-selected-day", isActive);
-  });
-  $$("button", els.mobileTabs).forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.day === dayKey);
-  });
+  if (els.grid) {
+    els.grid.dataset.mobileDay = dayKey;
+    $$(".day-card", els.grid).forEach((card) => {
+      const isActive = card.dataset.day === dayKey;
+      card.classList.toggle("is-mobile-active", isActive);
+      card.classList.toggle("is-selected-day", isActive);
+    });
+  }
+  if (els.mobileTabs) {
+    $$("button", els.mobileTabs).forEach((button) => {
+      button.classList.toggle("is-active", button.dataset.day === dayKey);
+    });
+  }
   if (!silent) setSelectedDate(localDateKey(dateOfWeekDay(dayKey)));
 }
 
@@ -560,8 +549,6 @@ function setSelectedDate(dateKey) {
   renderCalendar();
 }
 
-/* O destaque de "Hoje" é sempre recalculado pela data do sistema; a seleção
-   por clique é independente e se move para a coluna clicada. */
 function markTodayCard() {
   const todayKey = DAY_KEYS[(new Date().getDay() + 6) % 7];
   $$(".day-card").forEach((card) => {
@@ -569,7 +556,7 @@ function markTodayCard() {
     card.classList.toggle("is-today", isToday);
     const heading = $(".day-card-header h2", card);
     let tag = $(".today-tag", card);
-    if (isToday && !tag) {
+    if (isToday && !tag && heading) {
       tag = document.createElement("span");
       tag.className = "today-tag";
       tag.textContent = "Hoje";
@@ -628,7 +615,6 @@ function agendaConflicts(entries, blocks) {
   return conflicts;
 }
 
-/* Rollover: blocos não marcados no dia anterior voltam como pendências. */
 function getRolloverState() { return readJSON(KEY.rollover, {}); }
 function saveRolloverState(state) { writeJSON(KEY.rollover, state); }
 function markRolloverHandled(yesterdayKey, id) {
@@ -673,17 +659,22 @@ function movePendingToToday(item, yesterdayKey) {
 }
 
 function renderAgenda() {
+  if (!els.agendaList) return;
   els.agendaList.replaceChildren();
   if (!selectedDate) {
-    els.agendDateLabel.textContent = "Selecione uma data no calendário ou clique em um dia.";
-    els.agendaSummary.textContent = "";
-    els.agendaSummary.className = "daily-agenda-summary";
+    if (els.agendDateLabel) els.agendDateLabel.textContent = "Selecione uma data no calendário ou clique em um dia.";
+    if (els.agendaSummary) {
+      els.agendaSummary.textContent = "";
+      els.agendaSummary.className = "daily-agenda-summary";
+    }
     return;
   }
   const date = new Date(`${selectedDate}T12:00:00`);
-  els.agendDateLabel.textContent = new Intl.DateTimeFormat("pt-BR", {
-    weekday: "long", day: "2-digit", month: "long",
-  }).format(date);
+  if (els.agendDateLabel) {
+    els.agendDateLabel.textContent = new Intl.DateTimeFormat("pt-BR", {
+      weekday: "long", day: "2-digit", month: "long",
+    }).format(date);
+  }
 
   const off = timeOffForDate(selectedDate);
   const agenda = getAgenda()[selectedDate] || [];
@@ -699,16 +690,18 @@ function renderAgenda() {
   const total = agenda.reduce((sum, item) => sum + (Number(item.duration) || 0), 0);
   const conflicts = agendaConflicts(entries, blocks);
 
-  els.agendaSummary.className = "daily-agenda-summary";
-  let summary = `${formatDuration(total)} de compromissos`;
-  if (off) summary = `${off.label || "Folga"} · capacidade reduzida · ${summary}`;
-  if (conflicts.size) {
-    summary += ` · ${conflicts.size} conflito(s) de horário`;
-    els.agendaSummary.classList.add("has-conflict");
-  } else if (total > getWorkHours() * 60) {
-    els.agendaSummary.classList.add("has-overload");
+  if (els.agendaSummary) {
+    els.agendaSummary.className = "daily-agenda-summary";
+    let summary = `${formatDuration(total)} de compromissos`;
+    if (off) summary = `${off.label || "Folga"} · capacidade reduzida · ${summary}`;
+    if (conflicts.size) {
+      summary += ` · ${conflicts.size} conflito(s) de horário`;
+      els.agendaSummary.classList.add("has-conflict");
+    } else if (total > getWorkHours() * 60) {
+      els.agendaSummary.classList.add("has-overload");
+    }
+    els.agendaSummary.textContent = summary;
   }
-  els.agendaSummary.textContent = summary;
 
   entries.forEach((entry) => {
     const item = document.createElement("li");
@@ -891,6 +884,7 @@ function refreshAfterDataChange() {
 }
 
 function renderCapacity() {
+  if (!els.capacityContent) return;
   const monday = mondayFromWeekValue(currentWeek);
   els.capacityContent.replaceChildren();
   if (!monday) {
@@ -957,6 +951,7 @@ function recordWeekSnapshot() {
 }
 
 function renderHistory() {
+  if (!els.historyList) return;
   const history = getHistory().slice(-12).reverse();
   els.historyList.replaceChildren();
 
@@ -1000,6 +995,7 @@ function renderHistory() {
 }
 
 function renderStreak() {
+  if (!els.streakIndicator) return;
   const history = getHistory();
   let streak = 0;
   for (let i = history.length - 1; i >= 0; i -= 1) {
@@ -1029,6 +1025,7 @@ function goalBadgeInfo(goal) {
 }
 
 function renderGoals() {
+  if (!els.goalsList) return;
   const goals = getGoals();
   els.goalsList.replaceChildren();
   if (!goals.length) {
@@ -1085,6 +1082,7 @@ function renderGoals() {
 }
 
 function renderCalendar() {
+  if (!els.calendarTitle || !els.calendarGrid) return;
   const { year, month } = calendarCursor;
   els.calendarTitle.textContent = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" })
     .format(new Date(year, month, 1));
@@ -1149,6 +1147,7 @@ let focusRemaining = focusTotalSeconds;
 let focusInterval = null;
 
 function renderFocusClock() {
+  if (!els.focusClock) return;
   const minutes = Math.floor(focusRemaining / 60);
   const seconds = focusRemaining % 60;
   els.focusClock.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
@@ -1164,7 +1163,7 @@ function setFocusDuration(minutes) {
   stopFocusTimer();
   focusTotalSeconds = Math.max(1, Math.round(minutes)) * 60;
   focusRemaining = focusTotalSeconds;
-  els.focusClock.classList.remove("is-running");
+  if (els.focusClock) els.focusClock.classList.remove("is-running");
   renderFocusClock();
   setFocusStatus("");
 }
@@ -1173,17 +1172,19 @@ function renderAdherence() {
   const checks = $$(".slot-check");
   const done = checks.filter((item) => item.checked).length;
   const percent = checks.length ? Math.round((done / checks.length) * 100) : 0;
-  els.adherenceValue.textContent = `${percent}%`;
+  if (els.adherenceValue) els.adherenceValue.textContent = `${percent}%`;
   const ring = $("#adherence-ring");
   if (ring) {
     ring.style.setProperty("--ring-percent", String(percent));
     ring.setAttribute("aria-valuenow", String(percent));
   }
-  els.adherenceNote.textContent = percent >= 80
-    ? "Excelente ritmo — rotina quase completa."
-    : percent > 0
-      ? "Continue marcando os blocos concluídos."
-      : "Marque os blocos concluídos para acompanhar sua aderência.";
+  if (els.adherenceNote) {
+    els.adherenceNote.textContent = percent >= 80
+      ? "Excelente ritmo — rotina quase completa."
+      : percent > 0
+        ? "Continue marcando os blocos concluídos."
+        : "Marque os blocos concluídos para acompanhar sua aderência.";
+  }
 }
 
 function categorizeEntryText(text) {
@@ -1193,6 +1194,7 @@ function categorizeEntryText(text) {
 }
 
 function renderCategoryChart() {
+  if (!els.categoryChart) return;
   const monday = mondayFromWeekValue(currentWeek);
   els.categoryChart.replaceChildren();
   if (!monday) return;
@@ -1261,9 +1263,9 @@ const QUICK_PRESETS = {
 };
 
 async function applyQuickFill() {
-  const presetKey = $("#quick-fill-preset").value;
+  const presetKey = $("#quick-fill-preset")?.value;
   const preset = QUICK_PRESETS[presetKey];
-  const dayKey = els.grid.dataset.mobileDay || DAY_KEYS[(new Date().getDay() + 6) % 7];
+  const dayKey = els.grid?.dataset.mobileDay || DAY_KEYS[(new Date().getDay() + 6) % 7];
   if (!preset || !dayKey) return;
   if (!await modal.confirm({ heading: "Preenchimento rápido", detail: `Substituir os campos de ${DAY_LABELS[dayKey]}?`, confirmLabel: "Substituir" })) return;
   PERIODS.forEach((period) => {
@@ -1279,13 +1281,14 @@ async function applyQuickFill() {
 function getTemplates() { return readJSON(KEY.templates, []); }
 
 function renderTemplateSelect() {
+  if (!els.templateSelect) return;
   const templates = getTemplates();
   els.templateSelect.replaceChildren(new Option("Modelos…", ""), ...templates.map((tpl) => new Option(tpl.name, tpl.id)));
 }
 
-/* Lista visual de modelos: aplicar e excluir sem depender de dropdown cego. */
 function renderTemplatesList() {
   const list = $("#templates-list");
+  if (!list) return;
   const templates = getTemplates();
   list.replaceChildren();
   if (!templates.length) {
@@ -1341,7 +1344,7 @@ async function saveTemplate() {
   uiState.showStatus("Modelo salvo ✓");
 }
 
-async function applyTemplate(templateId = els.templateSelect.value) {
+async function applyTemplate(templateId = els.templateSelect?.value) {
   const template = getTemplates().find((tpl) => tpl.id === templateId);
   if (!template) {
     uiState.showStatus("Selecione um modelo.");
@@ -1358,7 +1361,7 @@ async function applyTemplate(templateId = els.templateSelect.value) {
   uiState.showStatus("Modelo aplicado ✓");
 }
 
-async function deleteTemplate(templateId = els.templateSelect.value) {
+async function deleteTemplate(templateId = els.templateSelect?.value) {
   const template = getTemplates().find((tpl) => tpl.id === templateId);
   if (!template) {
     uiState.showStatus("Selecione um modelo.");
@@ -1396,7 +1399,7 @@ const backupController = createBackupController({
     anchor.remove();
     URL.revokeObjectURL(url);
   },
-  status: (message) => { els.backupStatus.textContent = message; },
+  status: (message) => { if (els.backupStatus) els.backupStatus.textContent = message; },
 });
 
 async function copyBackup() {
@@ -1404,7 +1407,7 @@ async function copyBackup() {
     await backupController.copy();
     uiState.showStatus("Backup copiado ✓");
   } catch (error) {
-    els.backupStatus.textContent = `Falha ao copiar: ${error.message}`;
+    if (els.backupStatus) els.backupStatus.textContent = `Falha ao copiar: ${error.message}`;
   }
 }
 
@@ -1417,9 +1420,9 @@ async function restoreBackup() {
     const payload = JSON.parse(els.backupField.value);
     await backupController.restore(payload, KEY.backupConsolidated);
     reloadFromStorage();
-    els.backupStatus.textContent = "Backup restaurado ✓";
+    if (els.backupStatus) els.backupStatus.textContent = "Backup restaurado ✓";
   } catch {
-    els.backupStatus.textContent = "Cole um backup JSON válido para restaurar.";
+    if (els.backupStatus) els.backupStatus.textContent = "Cole um backup JSON válido para restaurar.";
   }
 }
 
@@ -1441,22 +1444,30 @@ function bindEvents() {
     button.addEventListener("click", () => activateTab(button.dataset.tab));
   });
 
-  els.weekPicker.addEventListener("change", () => {
-    currentWeek = els.weekPicker.value || weekValueForDate(new Date());
-    writeText(KEY.week, currentWeek);
-    renderWeekMeta();
-    renderCapacity();
-    refreshMetrics();
-  });
-  $("#week-prev").addEventListener("click", () => shiftWeek(-1));
-  $("#week-next").addEventListener("click", () => shiftWeek(1));
+  if (els.weekPicker) {
+    els.weekPicker.addEventListener("change", () => {
+      currentWeek = els.weekPicker.value || weekValueForDate(new Date());
+      writeText(KEY.week, currentWeek);
+      renderWeekMeta();
+      renderCapacity();
+      refreshMetrics();
+    });
+  }
 
-  els.grid.addEventListener("click", (event) => {
-    const card = event.target.closest(".day-card");
-    if (!card) return;
-    if (event.target.closest("input, button, [contenteditable]")) return;
-    selectDay(card.dataset.day);
-  });
+  const prevBtn = $("#week-prev");
+  if (prevBtn) prevBtn.addEventListener("click", () => shiftWeek(-1));
+
+  const nextBtn = $("#week-next");
+  if (nextBtn) nextBtn.addEventListener("click", () => shiftWeek(1));
+
+  if (els.grid) {
+    els.grid.addEventListener("click", (event) => {
+      const card = event.target.closest(".day-card");
+      if (!card) return;
+      if (event.target.closest("input, button, [contenteditable]")) return;
+      selectDay(card.dataset.day);
+    });
+  }
 
   document.addEventListener("input", (event) => {
     if (event.target.matches?.("[data-editable]")) {
@@ -1470,19 +1481,19 @@ function bindEvents() {
   });
 
   document.addEventListener("change", (event) => {
-  if (event.target.matches?.("[data-slot-check], [data-checklist], [data-priority]")) {
-    if (event.target.matches?.("[data-slot-check]")) {
-      uiState.toggleDoneClass(event.target, event.target.checked);
-      // Feedback tátil suave ao concluir/reabrir um bloco (microinteração premium)
-      if (event.target.checked && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
-        try { navigator.vibrate(12); } catch {}
+    if (event.target.matches?.("[data-slot-check], [data-checklist], [data-priority]")) {
+      if (event.target.matches?.("[data-slot-check]")) {
+        uiState.toggleDoneClass(event.target, event.target.checked);
+        if (event.target.checked && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+          try { navigator.vibrate(12); } catch {}
+        }
+      } else {
+        syncDoneClasses();
       }
-    } else {
-      syncDoneClasses();
+      persistPlanner();
     }
-    persistPlanner();
-  }
-});
+  });
+
   document.addEventListener("paste", (event) => {
     const target = event.target.closest?.("[contenteditable]");
     if (!target) return;
@@ -1507,37 +1518,47 @@ function bindEvents() {
     target.focus();
   });
 
-  $("#print-now").addEventListener("click", () => window.print());
+  const printBtn = $("#print-now");
+  if (printBtn) printBtn.addEventListener("click", () => window.print());
 
-  $("#template-save").addEventListener("click", saveTemplate);
+  const tplSave = $("#template-save");
+  if (tplSave) tplSave.addEventListener("click", saveTemplate);
 
-  $("#agenda-add").addEventListener("click", addAgendaEntry);
-  $("#agenda-block").addEventListener("click", addBlock);
+  const agendaAdd = $("#agenda-add");
+  if (agendaAdd) agendaAdd.addEventListener("click", addAgendaEntry);
 
-  $("#quick-fill-apply").addEventListener("click", applyQuickFill);
+  const agendaBlock = $("#agenda-block");
+  if (agendaBlock) agendaBlock.addEventListener("click", addBlock);
 
-  $("#history-clear").addEventListener("click", clearHistory);
+  const quickFillBtn = $("#quick-fill-apply");
+  if (quickFillBtn) quickFillBtn.addEventListener("click", applyQuickFill);
 
-  $("#goal-form").addEventListener("submit", (event) => {
-    event.preventDefault();
-    const text = $("#goal-text").value.trim();
-    const deadline = $("#goal-deadline").value;
-    const categoryValue = $("#goal-category").value;
-    const category = ["trabalho", "saude", "pessoal"].includes(categoryValue) ? categoryValue : "pessoal";
-    if (!text) return;
-    const goals = getGoals();
-    goals.push({
-      id: randomId(),
-      text,
-      deadline: /^\d{4}-\d{2}$/.test(deadline || "") ? deadline : null,
-      category,
-      done: false,
-      createdAt: new Date().toISOString(),
+  const histClear = $("#history-clear");
+  if (histClear) histClear.addEventListener("click", clearHistory);
+
+  const goalForm = $("#goal-form");
+  if (goalForm) {
+    goalForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const text = $("#goal-text")?.value.trim() || "";
+      const deadline = $("#goal-deadline")?.value;
+      const categoryValue = $("#goal-category")?.value;
+      const category = ["trabalho", "saude", "pessoal"].includes(categoryValue) ? categoryValue : "pessoal";
+      if (!text) return;
+      const goals = getGoals();
+      goals.push({
+        id: randomId(),
+        text,
+        deadline: /^\d{4}-\d{2}$/.test(deadline || "") ? deadline : null,
+        category,
+        done: false,
+        createdAt: new Date().toISOString(),
+      });
+      saveGoals(goals);
+      renderGoals();
+      event.target.reset();
     });
-    saveGoals(goals);
-    renderGoals();
-    event.target.reset();
-  });
+  }
 
   $$(".priority-move").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1549,62 +1570,98 @@ function bindEvents() {
     });
   });
 
-  $("#calendar-prev").addEventListener("click", () => {
-    calendarCursor.month -= 1;
-    if (calendarCursor.month < 0) { calendarCursor.month = 11; calendarCursor.year -= 1; }
-    renderCalendar();
-  });
-  $("#calendar-next").addEventListener("click", () => {
-    calendarCursor.month += 1;
-    if (calendarCursor.month > 11) { calendarCursor.month = 0; calendarCursor.year += 1; }
-    renderCalendar();
-  });
+  const calPrev = $("#calendar-prev");
+  if (calPrev) {
+    calPrev.addEventListener("click", () => {
+      calendarCursor.month -= 1;
+      if (calendarCursor.month < 0) { calendarCursor.month = 11; calendarCursor.year -= 1; }
+      renderCalendar();
+    });
+  }
 
-  $("#profile-name").addEventListener("input", (event) => {
-    const profile = getProfile();
-    profile.name = event.target.value.trim();
-    saveProfile(profile);
-    renderProfile();
-  });
-  $("#profile-email").addEventListener("change", (event) => {
-    const profile = getProfile();
-    profile.email = event.target.value.trim();
-    saveProfile(profile);
-    renderProfile();
-  });
-  $("#profile-timezone").addEventListener("change", (event) => {
-    const profile = getProfile();
-    profile.timezone = event.target.value;
-    saveProfile(profile);
-    renderProfile();
-    importHolidays();
-    renderCalendar();
-    renderCapacity();
-  });
-  $("#profile-week-format").addEventListener("change", (event) => {
-    const profile = getProfile();
-    profile.weekFormat = event.target.value;
-    saveProfile(profile);
-    renderProfile();
-  });
-  $("#holiday-sync").addEventListener("click", () => {
-    importHolidays();
-    renderCalendar();
-    renderCapacity();
-  });
-  $("#profile-avatar-button").addEventListener("click", () => $("#profile-photo-input").click());
-  $("#profile-photo-input").addEventListener("change", async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    await applyProfilePhoto(file);
-  });
-  $("#profile-photo-remove").addEventListener("click", () => {
-    const profile = getProfile();
-    delete profile.photo;
-    saveProfile(profile);
-    renderProfile();
-    uiState.showStatus("Foto removida ✓");
-  });
+  const calNext = $("#calendar-next");
+  if (calNext) {
+    calNext.addEventListener("click", () => {
+      calendarCursor.month += 1;
+      if (calendarCursor.month > 11) { calendarCursor.month = 0; calendarCursor.year += 1; }
+      renderCalendar();
+    });
+  }
+
+  const profileName = $("#profile-name");
+  if (profileName) {
+    profileName.addEventListener("input", (event) => {
+      const profile = getProfile();
+      profile.name = event.target.value.trim();
+      saveProfile(profile);
+      renderProfile();
+    });
+  }
+
+  const profileEmail = $("#profile-email");
+  if (profileEmail) {
+    profileEmail.addEventListener("change", (event) => {
+      const profile = getProfile();
+      profile.email = event.target.value.trim();
+      saveProfile(profile);
+      renderProfile();
+    });
+  }
+
+  const profileTz = $("#profile-timezone");
+  if (profileTz) {
+    profileTz.addEventListener("change", (event) => {
+      const profile = getProfile();
+      profile.timezone = event.target.value;
+      saveProfile(profile);
+      renderProfile();
+      importHolidays();
+      renderCalendar();
+      renderCapacity();
+    });
+  }
+
+  const profileFormat = $("#profile-week-format");
+  if (profileFormat) {
+    profileFormat.addEventListener("change", (event) => {
+      const profile = getProfile();
+      profile.weekFormat = event.target.value;
+      saveProfile(profile);
+      renderProfile();
+    });
+  }
+
+  const holidaySync = $("#holiday-sync");
+  if (holidaySync) {
+    holidaySync.addEventListener("click", () => {
+      importHolidays();
+      renderCalendar();
+      renderCapacity();
+    });
+  }
+
+  const avatarBtn = $("#profile-avatar-button");
+  if (avatarBtn) avatarBtn.addEventListener("click", () => $("#profile-photo-input")?.click());
+
+  const photoInput = $("#profile-photo-input");
+  if (photoInput) {
+    photoInput.addEventListener("change", async (event) => {
+      const file = event.target.files?.[0];
+      event.target.value = "";
+      await applyProfilePhoto(file);
+    });
+  }
+
+  const photoRemove = $("#profile-photo-remove");
+  if (photoRemove) {
+    photoRemove.addEventListener("click", () => {
+      const profile = getProfile();
+      delete profile.photo;
+      saveProfile(profile);
+      renderProfile();
+      uiState.showStatus("Foto removida ✓");
+    });
+  }
 
   $$(".theme-option").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1615,20 +1672,37 @@ function bindEvents() {
       uiState.showStatus(`Tema ${button.textContent.trim()} aplicado ✓`);
     });
   });
-  $("#pref-theme").addEventListener("change", (event) => {
-    const prefs = getPrefs();
-    prefs.theme = event.target.value;
-    savePrefs(prefs);
-    applyTheme(prefs.theme);
-  });
-  $("#pref-hide-empty").addEventListener("change", (event) => {
-    const prefs = getPrefs();
-    prefs.hideEmpty = event.target.checked;
-    savePrefs(prefs);
-    syncEmptySlots();
-  });
 
-    $("#pref-day-start").addEventListener("change", (event) => { const prefs = getPrefs(); prefs.dayStart = event.target.value; savePrefs(prefs); uiState.showStatus("Início do dia atualizado ✓"); });
+  const prefTheme = $("#pref-theme");
+  if (prefTheme) {
+    prefTheme.addEventListener("change", (event) => {
+      const prefs = getPrefs();
+      prefs.theme = event.target.value;
+      savePrefs(prefs);
+      applyTheme(prefs.theme);
+    });
+  }
+
+  const prefHideEmpty = $("#pref-hide-empty");
+  if (prefHideEmpty) {
+    prefHideEmpty.addEventListener("change", (event) => {
+      const prefs = getPrefs();
+      prefs.hideEmpty = event.target.checked;
+      savePrefs(prefs);
+      syncEmptySlots();
+    });
+  }
+
+  const prefDayStart = $("#pref-day-start");
+  if (prefDayStart) {
+    prefDayStart.addEventListener("change", (event) => {
+      const prefs = getPrefs();
+      prefs.dayStart = event.target.value;
+      savePrefs(prefs);
+      uiState.showStatus("Início do dia atualizado ✓");
+    });
+  }
+
   $$(".focus-chip[data-focus-minutes]").forEach((chip) => {
     chip.addEventListener("click", () => {
       setFocusDuration(Number(chip.dataset.focusMinutes));
@@ -1636,58 +1710,78 @@ function bindEvents() {
       chip.classList.add("is-active");
     });
   });
-  $("#focus-custom").addEventListener("click", async () => {
-    const values = await modal.open({
-      heading: "Ciclo personalizado",
-      fields: [
-        { name: "minutes", label: "Minutos de foco", type: "number", min: 1, max: 240, step: 1, value: Math.round(focusTotalSeconds / 60) },
-      ],
+
+  const focusCustom = $("#focus-custom");
+  if (focusCustom) {
+    focusCustom.addEventListener("click", async () => {
+      const values = await modal.open({
+        heading: "Ciclo personalizado",
+        fields: [
+          { name: "minutes", label: "Minutos de foco", type: "number", min: 1, max: 240, step: 1, value: Math.round(focusTotalSeconds / 60) },
+        ],
+      });
+      if (!values) return;
+      const minutes = Math.round(Number(values.minutes));
+      if (!(minutes > 0)) return;
+      setFocusDuration(minutes);
+      $$(".focus-chip[data-focus-minutes]").forEach((chip) => chip.classList.remove("is-active"));
+      uiState.showStatus(`Ciclo de foco ajustado para ${minutes} min ✓`);
     });
-    if (!values) return;
-    const minutes = Math.round(Number(values.minutes));
-    if (!(minutes > 0)) return;
-    setFocusDuration(minutes);
-    $$(".focus-chip[data-focus-minutes]").forEach((chip) => chip.classList.remove("is-active"));
-    uiState.showStatus(`Ciclo de foco ajustado para ${minutes} min ✓`);
-  });
+  }
 
-  $("#focus-start").addEventListener("click", () => {
-    if (focusInterval) return;
-    focusInterval = window.setInterval(() => {
-      focusRemaining -= 1;
-      renderFocusClock();
-      if (focusRemaining <= 0) {
-        stopFocusTimer();
-        focusRemaining = focusTotalSeconds;
+  const focusStart = $("#focus-start");
+  if (focusStart) {
+    focusStart.addEventListener("click", () => {
+      if (focusInterval) return;
+      focusInterval = window.setInterval(() => {
+        focusRemaining -= 1;
         renderFocusClock();
-        els.focusClock.classList.remove("is-running");
-        setFocusStatus("Ciclo concluído 🎉 Faça uma pausa breve.");
-        uiState.showStatus("Ciclo de foco concluído 🎉");
-      }
-    }, 1000);
-    els.focusClock.classList.add("is-running");
-    setFocusStatus("Em foco — evite trocas de contexto.");
-  });
-  $("#focus-pause").addEventListener("click", () => {
-    stopFocusTimer();
-    els.focusClock.classList.remove("is-running");
-    setFocusStatus(`Pausado em ${els.focusClock.textContent}.`);
-  });
-  $("#focus-reset").addEventListener("click", () => {
-    stopFocusTimer();
-    focusRemaining = focusTotalSeconds;
-    renderFocusClock();
-    els.focusClock.classList.remove("is-running");
-    setFocusStatus("");
-  });
+        if (focusRemaining <= 0) {
+          stopFocusTimer();
+          focusRemaining = focusTotalSeconds;
+          renderFocusClock();
+          els.focusClock.classList.remove("is-running");
+          setFocusStatus("Ciclo concluído 🎉 Faça uma pausa breve.");
+          uiState.showStatus("Ciclo de foco concluído 🎉");
+        }
+      }, 1000);
+      els.focusClock.classList.add("is-running");
+      setFocusStatus("Em foco — evite trocas de contexto.");
+    });
+  }
 
-  $("#backup-copy").addEventListener("click", copyBackup);
-  $("#backup-download").addEventListener("click", downloadBackup);
-  $("#backup-restore").addEventListener("click", restoreBackup);
+  const focusPause = $("#focus-pause");
+  if (focusPause) {
+    focusPause.addEventListener("click", () => {
+      stopFocusTimer();
+      els.focusClock.classList.remove("is-running");
+      setFocusStatus(`Pausado em ${els.focusClock.textContent}.`);
+    });
+  }
+
+  const focusReset = $("#focus-reset");
+  if (focusReset) {
+    focusReset.addEventListener("click", () => {
+      stopFocusTimer();
+      focusRemaining = focusTotalSeconds;
+      renderFocusClock();
+      els.focusClock.classList.remove("is-running");
+      setFocusStatus("");
+    });
+  }
+
+  const backupCopy = $("#backup-copy");
+  if (backupCopy) backupCopy.addEventListener("click", copyBackup);
+
+  const backupDl = $("#backup-download");
+  if (backupDl) backupDl.addEventListener("click", downloadBackup);
+
+  const backupRes = $("#backup-restore");
+  if (backupRes) backupRes.addEventListener("click", restoreBackup);
 }
 
 function init() {
-  els.weekPicker.value = currentWeek;
+  if (els.weekPicker) els.weekPicker.value = currentWeek;
   applyStoredValues();
   refreshDayProgress();
   markTodayCard();
@@ -1706,14 +1800,28 @@ function init() {
   renderFocusClock();
 
   const profile = getProfile();
-  $("#profile-name").value = profile.name;
-  $("#profile-email").value = profile.email;
-  $("#profile-timezone").value = profile.timezone;
-  $("#profile-week-format").value = profile.weekFormat;
+  const nameInput = $("#profile-name");
+  if (nameInput) nameInput.value = profile.name;
+
+  const emailInput = $("#profile-email");
+  if (emailInput) emailInput.value = profile.email || "";
+
+  const tzInput = $("#profile-timezone");
+  if (tzInput) tzInput.value = profile.timezone;
+
+  const formatInput = $("#profile-week-format");
+  if (formatInput) formatInput.value = profile.weekFormat;
+
   const prefs = getPrefs();
-  $("#pref-theme").value = prefs.theme;
-  $("#pref-hide-empty").checked = prefs.hideEmpty;
-  $("#pref-day-start").value = prefs.dayStart;
+  const prefTheme = $("#pref-theme");
+  if (prefTheme) prefTheme.value = prefs.theme;
+
+  const hideEmptyInput = $("#pref-hide-empty");
+  if (hideEmptyInput) hideEmptyInput.checked = prefs.hideEmpty;
+
+  const dayStartInput = $("#pref-day-start");
+  if (dayStartInput) dayStartInput.value = prefs.dayStart;
+
   applyTheme(prefs.theme);
   renderProfile();
 

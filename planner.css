@@ -248,29 +248,47 @@ main { padding: 16px clamp(14px, 3vw, 32px) 40px; max-width: 1500px; margin: 0 a
   box-shadow: 0 6px 14px rgba(79, 70, 229, 0.15);
 }
 .row-actions button:active { transform: translateY(0) scale(0.97); }
-/* Hierarquia: ação primária destaca-se entre as secundárias */
-.btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  box-shadow: 0 6px 14px rgba(79, 70, 229, 0.22);
+/* Hierarquia: ação primária destaca-se com contraste consistente em repouso e hover */
+.btn-primary,
+button.btn-primary,
+.row-actions button.btn-primary {
+  background-color: var(--accent) !important;
+  border: 1px solid var(--accent) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(194, 74, 51, 0.28);
 }
-.btn-primary:hover {
-  background: #4338ca;
-  border-color: #4338ca;
-  color: #fff;
+
+.btn-primary:hover,
+button.btn-primary:hover,
+.row-actions button.btn-primary:hover {
+  background-color: var(--accent-strong) !important;
+  border-color: var(--accent-strong) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(194, 74, 51, 0.35);
 }
-.btn-primary:active { transform: translateY(0) scale(0.97); }
-body.theme-dark .btn-primary { background: var(--accent); border-color: var(--accent); }
-body.theme-eink .btn-primary { background: #111; border-color: #111; }
-.row-actions input[type="text"], .row-actions input[type="month"],
-.row-actions input[type="time"], .row-actions input[type="number"], .row-actions input[type="date"] {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  padding: 8px 10px;
-  background: var(--surface);
+
+.btn-primary:active,
+button.btn-primary:active,
+.row-actions button.btn-primary:active {
+  transform: translateY(0) scale(0.97);
 }
-/* Campos dentro de linhas de ações crescem sem transbordar o cartão */
+
+body.theme-dark .btn-primary,
+body.theme-dark button.btn-primary,
+body.theme-dark .row-actions button.btn-primary {
+  background-color: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: #16161a !important;
+}
+
+body.theme-eink .btn-primary,
+body.theme-eink button.btn-primary,
+body.theme-eink .row-actions button.btn-primary {
+  background-color: #111111 !important;
+  border-color: #111111 !important;
+  color: #ffffff !important;
+}/* Campos dentro de linhas de ações crescem sem transbordar o cartão */
 .row-actions input:not([type="checkbox"]), .row-actions select {
   flex: 1 1 150px;
   min-width: 0;
