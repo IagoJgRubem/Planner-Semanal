@@ -1442,16 +1442,19 @@ function bindEvents() {
   });
 
   document.addEventListener("change", (event) => {
-    if (event.target.matches?.("[data-slot-check], [data-checklist], [data-priority]")) {
-      if (event.target.matches?.("[data-slot-check]")) {
-        uiState.toggleDoneClass(event.target, event.target.checked);
-      } else {
-        syncDoneClasses();
+  if (event.target.matches?.("[data-slot-check], [data-checklist], [data-priority]")) {
+    if (event.target.matches?.("[data-slot-check]")) {
+      uiState.toggleDoneClass(event.target, event.target.checked);
+      // Feedback tátil suave ao concluir/reabrir um bloco (microinteração premium)
+      if (event.target.checked && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+        try { navigator.vibrate(12); } catch {}
       }
-      persistPlanner();
+    } else {
+      syncDoneClasses();
     }
-  });
-
+    persistPlanner();
+  }
+});
   document.addEventListener("paste", (event) => {
     const target = event.target.closest?.("[contenteditable]");
     if (!target) return;

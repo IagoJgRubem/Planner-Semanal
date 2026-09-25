@@ -86,10 +86,10 @@ test("a exibição em tela usa cartões, tipografia 16px e barra de progresso di
   assert.match(css, /input, button, select, textarea \{ font: inherit; font-size: 1rem;/);
   assert.match(css, /input, select, textarea \{ max-width: 100%; \}/);
   assert.match(css, /\.row-actions input:not\(\[type="checkbox"\]\), \.row-actions select \{/);
-  assert.match(css, /--ink: #18181b;/);
-  assert.match(css, /--ink-body: #27272a;/);
-  assert.match(css, /--muted: #52525b;/);
-  assert.match(css, /--line: #e4e4e7;/);
+  assert.match(css, /--ink: #1d1d24;/);
+  assert.match(css, /--ink-body: #2b2b33;/);
+  assert.match(css, /--muted: #5b5b66;/);
+  assert.match(css, /--line: #e7e7ee;/);
   assert.match(css, /--select-ring: #2563eb;/);
   assert.match(css, /@media screen and \(max-width: 1099px\)/);
   assert.match(css, /\.day-card \{[^}]*border-radius: var\(--radius-lg\)/);
@@ -112,7 +112,8 @@ test("a tipografia segue a escala editorial com fontes locais", async () => {
   assert.match(css, /src: url\("\.\/fonts\/inter-latin-ext\.woff2"\)/);
   assert.match(css, /src: url\("\.\/fonts\/montserrat-latin-ext\.woff2"\)/);
   assert.match(css, /font-family: "Inter", "Segoe UI", system-ui/);
-  assert.match(css, /h1 \{ font-size: 1\.25rem; font-weight: 700;/);
+  assert.match(css, /font-family: var\(--font-display\);/);
+  assert.match(css, /--font-display: "Playfair Display"/);
   assert.match(css, /h2 \{ font-size: 1\.125rem; font-weight: 600; letter-spacing: -0\.02em;/);
   assert.match(css, /h3 \{ font-size: 0\.75rem; font-weight: 600;/);
   assert.match(css, /\.slot-text \{[^}]*font-size: 0\.875rem;/);
@@ -272,9 +273,9 @@ test("a cópia de backup envia exatamente o payload atual à área de transferê
   }
 });
 
-test("o service worker aplica a estratégia de cache v29 por tipo de recurso", async () => {
+test("o service worker aplica a estratégia de cache v30 por tipo de recurso", async () => {
   const worker = await source("planner-service-worker.js");
-  assert.match(worker, /planner-static-v29/);
+  assert.match(worker, /planner-static-v30/);
   assert.match(worker, /planner-fonts-v1/);
   assert.match(worker, /cacheFirstFont/);
   assert.match(worker, /staleWhileRevalidate/);
@@ -333,7 +334,7 @@ test("o backup rejeita versões superiores à atual sem restaurar dados", async 
   const storage = memoryStorage({ planner: "{}" });
   const controller = installBackupController({ version: 3, storage });
   await assert.rejects(
-    () => controller.restore({ app: "planner-operacional-semanal", version: 4, data: { planner: "{}" } }, "planner.backup-consolidated"),
+    () => controller.restore({ app: "planner-operacional-semanal", version: 4,  { planner: "{}" } }, "planner.backup-consolidated"),
     /Backup de versão mais recente/,
   );
   assert.equal(storage.getItem("planner"), "{}");
@@ -352,6 +353,7 @@ test("o debounce de 350 ms serializa o plannerDoc em uma única escrita", async 
   assert.equal(writes, 1);
   assert.deepEqual(JSON.parse(storage.getItem(PLANNER_STORAGE_KEYS.planner)), { fields: { a: "x" } });
 });
+
 test("o fallback de cota redireciona gravação volumosa ao IndexedDB", async () => {
   const idbSaved = new Map();
   const idb = {
@@ -360,7 +362,7 @@ test("o fallback de cota redireciona gravação volumosa ao IndexedDB", async ()
     remove: async (key) => idbSaved.delete(key),
   };
   const apontadores = new Map();
-const failingStorage = {
+  const failingStorage = {
     getItem: () => null,
     getApontador: (key) => apontadores.get(key) ?? null,
     setItem: (key, value) => {
@@ -390,6 +392,7 @@ test("chaves não volumosas mantêm gravação normal no localStorage", () => {
   store.write("planner", value);
   assert.equal(JSON.parse(saved.get("planner")).a, 1);
 });
+
 test("o import lazy de métricas é disparado somente na ativação da aba", async () => {
   const app = await source("modules/app.js");
   assert.match(app, /let metricsBundleLoaded = false;/);
